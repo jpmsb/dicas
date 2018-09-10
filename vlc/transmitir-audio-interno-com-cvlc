@@ -7,5 +7,5 @@ read -p "Digite a porta: " PORTA
 FONTE=$(pacmd list-sources |grep "analog-stereo.monitor" | cut -f2 -d ":" |cut -f2 -d " " |sed 's/\(.\{1\}\)//' |sed s'/.$//')
 
 #Transmite para http://seu-ip:$PORTA
-echo "Transmitindo usando o dispositivo $FONTE no endereço http://ip:$porta/"
+echo "Transmitindo usando o dispositivo $FONTE no endereço http://$ip:$porta/"
 cvlc -v pulse://$FONTE --sout '#transcode{vcodec=none,acodec=mp4a,ab=320,channels=2,samplerate=44100}:http{mux=ogg,dst=:$porta/}' :no-sout-all :sout-keep
