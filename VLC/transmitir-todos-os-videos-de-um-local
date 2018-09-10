@@ -1,0 +1,6 @@
+#!/bin/bash
+
+FONTE=$1
+PORTA=$2
+
+cvlc -v $FONTE --sout '#transcode{vcodec=h264,vb=2000,scale=Automático,acodec=mp4a,ab=320,channels=2,samplerate=44100}:http{mux=ts,dst=:$PORTA/}' :no-sout-all :sout-keep
