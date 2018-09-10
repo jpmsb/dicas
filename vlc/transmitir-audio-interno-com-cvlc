@@ -8,7 +8,6 @@ FONTE=$(pacmd list-sources |grep "analog-stereo.monitor" | cut -f2 -d ":" |cut -
 
 #Transmite para http://seu-ip:$PORTA
 echo "Transmitindo usando o dispositivo $FONTE na porta $PORTA no(s) endereço(s):"
-echo "###########################"
 echo "$IP"
 echo "###########################"
 echo "Acesse com http://IP:PORTA/"
