@@ -1,0 +1,4 @@
+#!/bin/bash
+
+echo "Transmitindo para a porta 8080."
+vlc -v screen:// --screen-fps=30 --sout '#transcode{vcodec=h264,vb=5000,scale=Automático,height=720px,acodec=mp4a,ab=320,channels=2,samplerate=44100}:http{mux=ts,dst=:8080/}' --sout-all --sout-keep
