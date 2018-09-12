@@ -1,0 +1,3 @@
+#!/bin/bash
+
+echo -e "Segundos desde 1-1-1970: $(date +%s)\nData atual: $(date +%d)/$(date +%m)/$(date +%Y) - $(date +%H):$(date +%M):$(date +%S)"
