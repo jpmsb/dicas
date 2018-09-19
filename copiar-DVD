@@ -1,0 +1,3 @@
+#!/bin/basb
+
+dd if=/dev/sr0 of=$(isoinfo -d -i /dev/sr0 |grep "Volume id" |cut -f3 -d " ").iso bs=$(isoinfo -d -i /dev/sr0  | grep "block size" |cut -f5 -d " ") count=$(isoinfo -d -i /dev/sr0  | grep "Volume size" |cut -f4 -d " ")
