@@ -1,0 +1,8 @@
+###################################
+struct Nodo {
+    uint32_t chave;
+    uint32_t posicao;
+    
+    bool operator<(const Nodo & o);
+    bool operator==(const Nodo & o);
+}
