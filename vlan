@@ -1,0 +1,69 @@
+# Switch esquerdo
+
+enable
+configure terminal
+vlan 5
+name depto-administrativo
+exit
+!
+interface fastEthernet 0/1
+switchport mode access
+switchport access vlan 5
+exit
+!
+interface fastEthernet 0/2
+switchport mode access
+switchport access vlan 5
+exit
+!
+vlan 10
+name depto-financeiro
+exit
+!
+interface fastEthernet 0/3
+switchport mode access
+switchport access vlan 10
+exit
+exit
+wr
+
+# Swtich direito
+
+enable
+configure terminal
+vlan 10
+name depto-financeiro
+exit
+!
+interface fastEthernet 0/2
+switchport mode access
+switchport access vlan 10
+exit
+!
+vlan 5
+name depto-administrativo
+exit
+!
+interface fastEthernet 0/3
+switchport mode access
+switchport access vlan 5
+exit
+exit
+wr
+
+# Criação de VLAN marcada
+# Switch esquerdo
+
+configure terminal
+interface gigabitethernet 0/1
+switchport mode trunk
+switchport native vlan 1
+exit
+!
+interface gigabitethernet 0/1
+switchport mode trunk
+switchport trunk allowed vlan 5
+switchport trunk allowed vlan add 10
+exit
+exit
+wr
