@@ -1,0 +1,21 @@
+enable
+configure terminal
+hostname SW_ESQUERDO
+interface vlan1
+ip address 10.10.10.10 255.255.255.0
+!
+ip default-gateway 10.10.10.1
+!
+line con 0
+exit
+line vty 0 4
+ password CISCO
+ login
+exit
+line vty 5 15
+ password CISCO
+ login
+exit
+enable secret CISCO
+exit
+wr
