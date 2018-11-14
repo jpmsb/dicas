@@ -1,28 +1,68 @@
-# Switch esquerdo
+# Switch central
 
 enable
 configure terminal
-vlan 5
-name depto-administrativo
+vlan 10
+name laboratorio-de-alunos
 exit
 !
 interface fastEthernet 0/1
 switchport mode access
-switchport access vlan 5
+switchport access vlan 10
 exit
 !
 interface fastEthernet 0/2
 switchport mode access
-switchport access vlan 5
-exit
-!
-vlan 10
-name depto-financeiro
+switchport access vlan 10
 exit
 !
 interface fastEthernet 0/3
 switchport mode access
 switchport access vlan 10
+exit
+!
+interface fastEthernet 0/4
+switchport mode access
+switchport access vlan 10
+exit
+!
+interface fastEthernet 0/5
+switchport mode access
+switchport access vlan 10
+exit
+!
+interface fastEthernet 0/6
+switchport mode access
+switchport access vlan 10
+exit
+!
+vlan 20
+name laboratorio-interativo
+exit
+!
+interface fastEthernet 0/12
+switchport mode access
+switchport access vlan 20
+exit
+!
+interface fastEthernet 0/13
+switchport mode access
+switchport access vlan 20
+exit
+!
+interface fastEthernet 0/14
+switchport mode access
+switchport access vlan 20
+exit
+!
+interface fastEthernet 0/15
+switchport mode access
+switchport access vlan 20
+exit
+!
+interface fastEthernet 0/16
+switchport mode access
+switchport access vlan 20
 exit
 exit
 wr
@@ -67,3 +107,42 @@ switchport trunk allowed vlan add 10
 exit
 exit
 wr
+
+
+# Switch para o laboratório de alunos
+
+enable
+configure terminal
+interface fastEthernet 0/23
+switchport native vlan 1
+switchport mode trunk
+switchport trunk allowed vlan 10,100
+exit
+!
+interface fastEthernet 0/24
+switchport native vlan 1
+switchport mode trunk
+switchport trunk allowed vlan 10,100
+exit
+exit
+wr
+!
+
+# Switch para o laboratório de alunos
+
+enable
+configure terminal
+interface fastEthernet 0/21
+switchport native vlan 1
+switchport mode trunk
+switchport trunk allowed vlan 20,100
+exit
+!
+interface fastEthernet 0/22
+switchport native vlan 1
+switchport mode trunk
+switchport trunk allowed vlan 20,100
+exit
+exit
+wr
+!
