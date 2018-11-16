@@ -146,3 +146,29 @@ exit
 exit
 wr
 !
+
+
+# Switch 3
+
+enable
+configure terminal
+interface gigabitEthernet 0/2
+switchport native vlan 1
+switchport mode trunk
+switchport trunk allowed vlan 20,100
+exit
+exit
+wr
+
+# Switch 2
+
+enable
+configure terminal
+interface gigabitEthernet 0/1
+switchport native vlan 1
+switchport mode trunk
+switchport trunk allowed vlan 10,20,100
+exit
+exit
+wr
+!
