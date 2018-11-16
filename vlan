@@ -137,10 +137,6 @@ vlan 10
 name laboratorio-de-alunos
 exit
 !
-vlan 20
-name laboratorio-interativo
-exit
-!
 vlan 100
 name departamento-administrativo
 exit
@@ -163,13 +159,7 @@ exit
 interface gigabitEthernet 0/1
 switchport native vlan 1
 switchport mode trunk
-switchport trunk allowed vlan 20,100
-exit
-!
-interface gigabitEthernet 0/2
-switchport native vlan 1
-switchport mode trunk
-switchport trunk allowed vlan 10,20,100
+switchport trunk allowed vlan 10,100
 exit
 exit
 wr
@@ -198,7 +188,7 @@ switchport mode access
 switchport access vlan 20
 exit
 !
-interface gigabitEthernet 0/2
+interface fastEthernet 0/24
 switchport native vlan 1
 switchport mode trunk
 switchport trunk allowed vlan 10,20
@@ -214,14 +204,24 @@ vlan 20
 name laboratorio-interativo
 exit
 !
+vlan 10
+name laboratorio-de-alunos
+exit
+!
 vlan 100
 name departamento-administrativo
+exit
+!
+interface fastEthernet 0/24
+switchport native vlan 1
+switchport mode trunk
+switchport trunk allowed vlan 10,20,100
 exit
 !
 interface gigabitEthernet 0/1
 switchport native vlan 1
 switchport mode trunk
-switchport trunk allowed vlan 20,100
+switchport trunk allowed vlan 10,100
 exit
 !
 interface gigabitEthernet 0/2
