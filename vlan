@@ -69,6 +69,11 @@ vlan 100
 name departamento-administrativo
 exit
 !
+interface fastEthernet 0/7
+switchport mode access
+switchport access vlan 100
+exit
+!
 interface range fastEthernet0/23 -24
 switchport mode trunk
 switchport trunk native vlan 10
@@ -201,7 +206,32 @@ exit
 exit
 wr
 
+# Switch 0
 
+enable
+configure terminal
+vlan 20
+name laboratorio-interativo
+exit
+!
+vlan 100
+name departamento-administrativo
+exit
+!
+interface gigabitEthernet 0/1
+switchport native vlan 1
+switchport mode trunk
+switchport trunk allowed vlan 20,100
+exit
+!
+interface gigabitEthernet 0/2
+switchport native vlan 1
+switchport mode trunk
+switchport trunk allowed vlan 20,100
+exit
+exit
+wr
+!
 
 
 
