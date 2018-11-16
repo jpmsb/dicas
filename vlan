@@ -65,33 +65,147 @@ switchport mode access
 switchport access vlan 20
 exit
 !
+vlan 100
+name departamento-administrativo
+exit
+!
+interface range fastEthernet0/23 -24
+switchport mode trunk
+switchport trunk native vlan 10
+channel-group 1 mode on
+exit
+!
+interface range fastEthernet0/21 -22
+switchport mode trunk
+switchport trunk native vlan 20
+channel-group 2 mode on
+exit
+!
+interface port-channel 2
+switchport trunk native vlan 20
+exit
+!
+interface port-channel 1
+switchport trunk native vlan 10
+exit
+exit
+wr
+!
+
+# Switch 3
+
+enable
+configure terminal
 vlan 20
 name laboratorio-interativo
 exit
-exit
-wr
 !
-enable
-configure terminal
-interface range fastEthernet0/23 -24
-switchport mode trunk
-switchport trunk allowed 10,100
-channel-group 1 mode active
+vlan 100
+name departamento-administrativo
 exit
-exit
-wr
 !
-enable
-configure terminal
 interface range fastEthernet0/21 -22
 switchport mode trunk
-switchport trunk allowed 20,100
-channel-group 2 mode active
+switchport trunk native vlan 20
+channel-group 2 mode on
+exit
+!
+interface port-channel 2
+switchport trunk native vlan 20
+exit
+!
+interface gigabitEthernet 0/2
+switchport native vlan 1
+switchport mode trunk
+switchport trunk allowed vlan 20,100
+exit
+exit
+wr
+!
+
+
+# Switch 2
+
+enable
+configure terminal
+vlan 10
+name laboratorio-de-alunos
+exit
+!
+vlan 20
+name laboratorio-interativo
+exit
+!
+vlan 100
+name departamento-administrativo
+exit
+!
+interface fastEthernet 0/2
+switchport mode access
+switchport access vlan 100
+exit
+!
+interface range fastEthernet0/23 -24
+switchport mode trunk
+switchport trunk native vlan 10
+channel-group 1 mode on
+exit
+!
+interface port-channel 1
+switchport trunk native vlan 10
+exit
+!
+interface gigabitEthernet 0/1
+switchport native vlan 1
+switchport mode trunk
+switchport trunk allowed vlan 20,100
+exit
+!
+interface gigabitEthernet 0/2
+switchport native vlan 1
+switchport mode trunk
+switchport trunk allowed vlan 10,20,100
+exit
+exit
+wr
+!
+
+
+# Switch 4
+
+enable
+configure terminal
+vlan 10
+name laboratorio-de-alunos
+exit
+!
+vlan 20
+name laboratorio-interativo
+exit
+!
+interface fastEthernet 0/1
+switchport mode access
+switchport access vlan 10
+exit
+!
+interface fastEthernet 0/2
+switchport mode access
+switchport access vlan 20
+exit
+!
+interface gigabitEthernet 0/2
+switchport native vlan 1
+switchport mode trunk
+switchport trunk allowed vlan 10,20
 exit
 exit
 wr
 
 
+
+
+
+------
 # Swtich direito
 
 enable
@@ -129,157 +243,6 @@ interface gigabitethernet 0/1
 switchport mode trunk
 switchport trunk allowed vlan 5
 switchport trunk allowed vlan add 10
-exit
-exit
-wr
-
-
-# Switch para o laboratório de alunos
-
-enable
-configure terminal
-interface fastEthernet 0/23
-switchport native vlan 1
-switchport mode trunk
-switchport trunk allowed vlan 10,100
-exit
-!
-interface fastEthernet 0/24
-switchport native vlan 1
-switchport mode trunk
-switchport trunk allowed vlan 10,100
-exit
-exit
-wr
-!
-
-# Switch para o laboratório de alunos
-
-enable
-configure terminal
-interface fastEthernet 0/21
-switchport native vlan 1
-switchport mode trunk
-switchport trunk allowed vlan 20,100
-exit
-!
-interface fastEthernet 0/22
-switchport native vlan 1
-switchport mode trunk
-switchport trunk allowed vlan 20,100
-exit
-exit
-wr
-!
-
-
-# Switch 3
-
-enable
-configure terminal
-vlan 20
-name laboratorio-interativo
-exit
-!
-vlan 100
-name departamento-administrativo
-exit
-!
-interface fastEthernet 0/21
-switchport native vlan 1
-switchport mode trunk
-switchport trunk allowed vlan 20,100
-exit
-!
-interface fastEthernet 0/22
-switchport native vlan 1
-switchport mode trunk
-switchport trunk allowed vlan 20,100
-exit
-!
-interface gigabitEthernet 0/2
-switchport native vlan 1
-switchport mode trunk
-switchport trunk allowed vlan 20,100
-exit
-exit
-wr
-!
-enable
-configure terminal
-interface range fastEthernet0/21 -22
-switchport mode trunk
-switchport trunk allowed 20,100
-channel-group 2 mode active
-exit
-exit
-wr
-
-# Switch 2
-
-enable
-configure terminal
-vlan 10
-name laboratorio-de-alunos
-exit
-!
-vlan 20
-name laboratorio-interativo
-exit
-!
-vlan 100
-name departamento-administrativo
-exit
-!
-interface fastEthernet 0/2
-switchport mode access
-switchport access vlan 100
-exit
-!
-interface fastEthernet 0/23
-switchport native vlan 1
-switchport mode trunk
-switchport trunk allowed vlan 10,20,100
-exit
-!
-interface fastEthernet 0/24
-switchport native vlan 1
-switchport mode trunk
-switchport trunk allowed vlan 10,20,100
-exit
-!
-interface gigabitEthernet 0/1
-switchport native vlan 1
-switchport mode trunk
-switchport trunk allowed vlan 10,20,100
-exit
-!
-interface gigabitEthernet 0/2
-switchport native vlan 1
-switchport mode trunk
-switchport trunk allowed vlan 10,20,100
-exit
-exit
-wr
-!
-enable
-configure terminal
-interface range fastEthernet0/23 -24
-switchport mode trunk
-switchport trunk allowed 10,100
-channel-group 1 mode active
-exit
-exit
-wr
-
-# Switch 4
-
-enable
-configure terminal
-interface gigabitEthernet 0/2
-switchport native vlan 1
-switchport mode trunk
-switchport trunk allowed vlan 10,20,100
 exit
 exit
 wr
