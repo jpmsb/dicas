@@ -1,0 +1,3 @@
+data = outra->data;
+if(outra->esq) esq=new arvore<T> (outra->esq);
+else esq=nullptr
