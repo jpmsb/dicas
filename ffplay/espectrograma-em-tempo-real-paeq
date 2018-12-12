@@ -1,4 +1,8 @@
 #!/bin/bash
 
-pacmd load-module module-null-sink sink_name=aovivo
+sink=$(pacmd list sinks |grep aovivo)
+
+if [ -z ${sink} ]; then
+    pacmd load-module module-null-sink sink_name=aovivo
+fi
 ffplay -f lavfi -i "amovie=aovivo.monitor:f=pulse, asplit [a][out1]; [a] showspectrum=mode=separate:color=rainbow:slide=1:scale=sqrt:s=960x1080 [out0]"
