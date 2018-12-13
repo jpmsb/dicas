@@ -2,7 +2,7 @@
 
 sink=$(pacmd list sinks |grep aovivo)
 
-if [ -z ${sink} ]; then
+if [ -z "${sink}" ]; then
     pacmd load-module module-null-sink sink_name=aovivo
 fi
 
