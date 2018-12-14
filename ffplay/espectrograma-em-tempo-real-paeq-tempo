@@ -1,0 +1,9 @@
+#!/bin/bash
+
+sink=$(pacmd list sinks |grep aovivo)
+
+if [ -z "${sink}" ]; then
+    pacmd load-module module-null-sink sink_name=aovivo
+fi
+
+ffplay -f lavfi -i "amovie=aovivo.monitor:f=pulse, asplit [a][out1]; [a] showspectrum=mode=separate:color=rainbow:slide=1:scale=sqrt:s=1020x1080 [out0]" -vf "drawtext=fontfile="/usr/share/fonts/truetype/noto/NotoMono-Regular.ttf": text='%{pts\:localtime\:0\:%H\\\\\:%M\\\\\:%S}\:%{frame_num}': start_number=1: x=(w-tw): y=0: fontcolor=white"
