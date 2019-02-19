@@ -1,0 +1,23 @@
+# C++
+## getline
+→ Obtém uma linha completa
+
+## cin
+→ Seu uso direto pode ser útil em loops
+
+## Compilação
+→ g++ -g -std=c++11 main.cpp -o programa: compila com os símbolos de depuração podendo ser analizado por um depurador, ex.: gdb
+
+## Find
+→ string.find("algo"): encontra a posição de 'algo' dentro de uma string
+
+## Substring
+→ string.substr(de onde, quanto eu vou andar): captura um trecho da string
+
+## stoi, stof, stod
+→ int num = stoi(string): converte uma string para inteiro
+→ float num = stof(string): converte uma string para ponto flutuante
+→ double num = stod(string): converte uma string para double, ou seja, um ponto fluante com o dobro de dígitos
+
+## Da biblioteca string
+→ string.size(): obtém o tamanho da string.
