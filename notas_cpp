@@ -19,5 +19,13 @@
 → float num = stof(string): converte uma string para ponto flutuante
 → double num = stod(string): converte uma string para double, ou seja, um ponto fluante com o dobro de dígitos
 
+## Exemplo de resto
+int main(){
+   double a = 23 / 12;
+   double b = 23 % 12;
+
+   cout << b << endl;
+}
+
 ## Da biblioteca string
 → string.size(): obtém o tamanho da string.
