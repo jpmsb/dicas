@@ -106,3 +106,29 @@ int main(int argc, char * argv[]){
 # 22/2/2019
 # string.find_first_of(algo): encontra a posição da primeira ocorrência relacioda à algo. Tipo: int
 # string.find_first_not_of(algo): encontra a posição da primeira ocorrência não relacionada à algo. Tipo: int
+
+####################### contador_de_palavras.cpp #######################
+#include <iostream>
+#include <string>
+
+using namespace std;
+
+int main(int argc, char * argv[]){
+   int contagem = 0, pos_sim = 0, pos_nao = 0;
+   string frase;
+
+   getline(cin, frase);
+   cout << R"(Entrada: ")" << frase << R"(")" << endl;
+
+   while (true){
+       pos_nao = frase.find_first_not_of("\n\t ");
+       pos_sim = frase.find_first_of("\n\t ", pos_nao);
+       if (pos_nao == string::npos) break;
+       cout << "Substring " << contagem+1 << ": "<< frase.substr(pos_nao, pos_sim - pos_nao) << endl;
+       frase.erase(pos_nao, pos_sim - pos_nao);
+       contagem++;
+   }
+
+   cout << "Número de palavras: " << contagem << endl;
+}
+#########################################################################
