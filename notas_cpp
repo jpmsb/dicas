@@ -101,3 +101,8 @@ int main(int argc, char * argv[]){
 3.0 0.0
 3.5 1.25
 4.0 3.0
+
+#######################################################################
+# 22/2/2019
+# string.find_first_of(algo): encontra a posição da primeira ocorrência relacioda à algo. Tipo: int
+# string.find_first_not_of(algo): encontra a posição da primeira ocorrência não relacionada à algo. Tipo: int
