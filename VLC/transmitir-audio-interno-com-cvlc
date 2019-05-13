@@ -1,6 +1,7 @@
 #!/bin/bash
 
 IP=$(ip addr show | grep -o "inet [0-9]*\.[0-9]*\.[0-9]*\.[0-9]*" | grep -o "[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*")
+IP_externo=$(curl -sL https://jpmsb.sj.ifsc.edu.br/meuip)
 echo "Script para a transmissão do áudio interno através do cvlc via HTTP."
 read -p "Digite a porta: " PORTA
 
@@ -9,6 +10,11 @@ FONTE=$(pacmd list-sources |grep "analog-stereo.monitor" | cut -f2 -d ":" |cut -
 #Transmite para http://seu-ip:$PORTA
 echo "Transmitindo usando o dispositivo $FONTE na porta $PORTA no(s) endereço(s):"
 echo "$IP"
+
+if [ ! -z " $IP_externo" ]; then
+    echo "$IP_externo → IP externo. Verifique o redirecionamento de portas em caso de NAT"
+fi
+
 echo "###########################"
 echo "Acesse com http://IP:$PORTA/"
 echo "###########################"
