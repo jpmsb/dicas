@@ -1,0 +1,3 @@
+#!/bin/bash
+
+ffmpeg -f lavfi -i "amovie=aovivo.monitor:f=pulse, asplit [a][out1]; [a] showspectrum=mode=separate:color=rainbow:slide=1:scale=sqrt:s=1280x720 [out0]" -vf "drawtext=fontfile="/usr/share/fonts/truetype/noto/NotoMono-Regular.ttf": text='%{pts\:localtime\:0\:%H\\\\\:%M\\\\\:%S}\:%{frame_num}': start_number=1: x=(w-tw): y=0: fontcolor=white" -vf mpdecimate -f mpegts - | vlc - --sout '#transcode{vb=1000,ab=320}:http{mux=ts,dst=:8080/}' --sout-all --sout-keep
