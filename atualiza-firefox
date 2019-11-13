@@ -4,7 +4,7 @@ rm -Rf /usr/bin/firefox
 rm -Rf /opt/firefox
 rm -Rf /usr/share/applications/firefox.desktop
 wget "https://download.mozilla.org/?product=firefox-latest&os=linux64&lang=pt-BR" -O /firefox.tar.bz2
-tar -jxvf  firefox.tar.bz2 -C /opt/
+tar -jxvf /firefox.tar.bz2 -C /opt/
 ln -sf /opt/firefox/firefox /usr/bin/firefox
 echo -e '[Desktop Entry]\n Encoding=UTF-8\n Name=Mozilla Firefox\n Comment=Navegador Web\n Exec=/opt/firefox/firefox\n Icon=/opt/firefox/browser/chrome/icons/default/default128.png\n Type=Application\n Categories=Network' | sudo tee /usr/share/applications/firefox.desktop
 chmod +x /usr/share/applications/firefox.desktop
