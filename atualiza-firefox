@@ -8,3 +8,4 @@ tar -jxvf /firefox.tar.bz2 -C /opt/
 ln -sf /opt/firefox/firefox /usr/bin/firefox
 echo -e '[Desktop Entry]\n Encoding=UTF-8\n Name=Mozilla Firefox\n Comment=Navegador Web\n Exec=/opt/firefox/firefox\n Icon=/opt/firefox/browser/chrome/icons/default/default128.png\n Type=Application\n Categories=Network' | sudo tee /usr/share/applications/firefox.desktop
 chmod +x /usr/share/applications/firefox.desktop
+rm -Rf /firefox.tar.bz2
