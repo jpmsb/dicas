@@ -1,0 +1,31 @@
+#!/bin/bash
+
+# É necessário te o scrcpy instalado
+
+pkill -f nc
+pkill -f omxplayer
+pkill -f vlc
+
+timeout 3 usbaudio
+
+FONTE=$(pacmd list-sources |grep "alsa_input.usb" | cut -f2 -d ":" |cut -f2 -d " " |sed 's/\(.\{1\}\)//' |sed s'/.$//')
+
+cvlc pulse://$FONTE --live-caching 200 &
+
+adb devices
+
+sleep 2
+
+adb push /usr/share/scrcpyomx/scrcpy-server-v1.3.jar /data/local/tmp/
+adb reverse localabstract:scrcpy tcp:56100
+
+if [ ! $(test -e $HOME/streamer ; echo $?) ]; then
+    mkfifo $HOME/streamer
+fi
+
+nc -l -p 56100 > $HOME/streamer &
+
+sleep 5 && adb shell CLASSPATH=/data/local/tmp/scrcpy-server-v1.3.jar app_process / com.genymobile.scrcpy.Server 0 8000000 false &
+
+omxplayer -o hdmi --no-keys --no-osd --refresh  --advanced=0 --loop --timeout 0 --lavfdopts probesize:250000 --video_queue 1 --avdict rtsp_transport:tcp  $HOME/streamer
+exit 0
