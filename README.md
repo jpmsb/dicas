@@ -1,2 +1,3 @@
 # Dicas
-Repositório com dicas em sistemas Linux
+
+Repositório com vários script que podem ser úteis em diversar ocasiões. Geralmente são soluções simples e pontuais.
