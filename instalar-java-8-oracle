@@ -1,0 +1,56 @@
+#!/bin/bash
+
+apt update && apt -y -q install java-common
+wget https://jpmsb.sj.ifsc.edu.br/java8.tar.gz -O /java8.tar.gz
+mkdir -p /usr/lib/jvm/
+tar -xvf /java8.tar.gz -C /usr/lib/jvm/
+rm -r /java8.tar.gz
+update-alternatives --install /usr/bin/ControlPanel ControlPanel /usr/lib/jvm/java-8-oracle/jre/bin/ControlPanel 180
+update-alternatives --install /usr/bin/java java /usr/lib/jvm/java-8-oracle/jre/bin/java 180
+update-alternatives --install /usr/bin/javaws javaws /usr/lib/jvm/java-8-oracle/jre/bin/javaws 180
+update-alternatives --install /usr/bin/jcontrol jcontrol /usr/lib/jvm/java-8-oracle/jre/bin/jcontrol 180
+update-alternatives --install /usr/bin/jjs jjs /usr/lib/jvm/java-8-oracle/jre/bin/jjs 180
+update-alternatives --install /usr/bin/keytool keytool /usr/lib/jvm/java-8-oracle/jre/bin/keytool 180
+update-alternatives --install /usr/bin/orbd orbd /usr/lib/jvm/java-8-oracle/jre/bin/orbd 180
+update-alternatives --install /usr/bin/pack200 pack200 /usr/lib/jvm/java-8-oracle/jre/bin/pack200 180
+update-alternatives --install /usr/bin/policytool policytool /usr/lib/jvm/java-8-oracle/jre/bin/policytool 180
+update-alternatives --install /usr/bin/rmid rmid /usr/lib/jvm/java-8-oracle/jre/bin/rmid 180
+update-alternatives --install /usr/bin/rmiregistry rmiregistry /usr/lib/jvm/java-8-oracle/jre/bin/rmiregistry 180
+update-alternatives --install /usr/bin/servertool servertool /usr/lib/jvm/java-8-oracle/jre/bin/servertool 180
+update-alternatives --install /usr/bin/tnameserv tnameserv /usr/lib/jvm/java-8-oracle/jre/bin/tnameserv 180
+update-alternatives --install /usr/bin/unpack200 unpack200 /usr/lib/jvm/java-8-oracle/jre/bin/unpack200 180
+update-alternatives --install /usr/lib/jexec jexec /usr/lib/jvm/java-8-oracle/jre/lib/jexec 180
+update-alternatives --install /usr/bin/appletviewer appletviewer /usr/lib/jvm/java-8-oracle/bin/appletviewer 180
+update-alternatives --install /usr/bin/extcheck extcheck /usr/lib/jvm/java-8-oracle/bin/extcheck 180
+update-alternatives --install /usr/bin/idlj idlj /usr/lib/jvm/java-8-oracle/bin/idlj 180
+update-alternatives --install /usr/bin/jar jar /usr/lib/jvm/java-8-oracle/bin/jar 180
+update-alternatives --install /usr/bin/jarsigner jarsigner /usr/lib/jvm/java-8-oracle/bin/jarsigner 180
+update-alternatives --install /usr/bin/javac javac /usr/lib/jvm/java-8-oracle/bin/javac 180
+update-alternatives --install /usr/bin/javadoc javadoc /usr/lib/jvm/java-8-oracle/bin/javadoc 180
+update-alternatives --install /usr/bin/javafxpackager javafxpackager /usr/lib/jvm/java-8-oracle/bin/javafxpackager 180
+update-alternatives --install /usr/bin/javah javah /usr/lib/jvm/java-8-oracle/bin/javah 180
+update-alternatives --install /usr/bin/javap javap /usr/lib/jvm/java-8-oracle/bin/javap 180
+update-alternatives --install /usr/bin/javapackager javapackager /usr/lib/jvm/java-8-oracle/bin/javapackager 180
+update-alternatives --install /usr/bin/jcmd jcmd /usr/lib/jvm/java-8-oracle/bin/jcmd 180
+update-alternatives --install /usr/bin/jconsole jconsole /usr/lib/jvm/java-8-oracle/bin/jconsole 180
+update-alternatives --install /usr/bin/jdb jdb /usr/lib/jvm/java-8-oracle/bin/jdb 180
+update-alternatives --install /usr/bin/jdeps jdeps /usr/lib/jvm/java-8-oracle/bin/jdeps 180
+update-alternatives --install /usr/bin/jhat jhat /usr/lib/jvm/java-8-oracle/bin/jhat 180
+update-alternatives --install /usr/bin/jinfo jinfo /usr/lib/jvm/java-8-oracle/bin/jinfo 180
+update-alternatives --install /usr/bin/jmap jmap /usr/lib/jvm/java-8-oracle/bin/jmap 180
+update-alternatives --install /usr/bin/jmc jmc /usr/lib/jvm/java-8-oracle/bin/jmc 180
+update-alternatives --install /usr/bin/jps jps /usr/lib/jvm/java-8-oracle/bin/jps 180
+update-alternatives --install /usr/bin/jrunscript jrunscript /usr/lib/jvm/java-8-oracle/bin/jrunscript 180
+update-alternatives --install /usr/bin/jsadebugd jsadebugd /usr/lib/jvm/java-8-oracle/bin/jsadebugd 180
+update-alternatives --install /usr/bin/jstack jstack /usr/lib/jvm/java-8-oracle/bin/jstack 180
+update-alternatives --install /usr/bin/jstat jstat /usr/lib/jvm/java-8-oracle/bin/jstat 180
+update-alternatives --install /usr/bin/jstatd jstatd /usr/lib/jvm/java-8-oracle/bin/jstatd 180
+update-alternatives --install /usr/bin/jvisualvm jvisualvm /usr/lib/jvm/java-8-oracle/bin/jvisualvm 180
+update-alternatives --install /usr/bin/native2ascii native2ascii /usr/lib/jvm/java-8-oracle/bin/native2ascii 180
+update-alternatives --install /usr/bin/rmic rmic /usr/lib/jvm/java-8-oracle/bin/rmic 180
+update-alternatives --install /usr/bin/schemagen schemagen /usr/lib/jvm/java-8-oracle/bin/schemagen 180
+update-alternatives --install /usr/bin/serialver serialver /usr/lib/jvm/java-8-oracle/bin/serialver 180
+update-alternatives --install /usr/bin/wsgen wsgen /usr/lib/jvm/java-8-oracle/bin/wsgen 180
+update-alternatives --install /usr/bin/wsimport wsimport /usr/lib/jvm/java-8-oracle/bin/wsimport 180
+update-alternatives --install /usr/bin/xjc xjc /usr/lib/jvm/java-8-oracle/bin/xjc 180
+update-java-alternatives -s java-8-oracle
