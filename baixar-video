@@ -13,7 +13,7 @@ dados_do_video=$(echo "$dados" | grep -v "audio only" | grep -E '[0-9]{0,9}k')
 qualidade_1=0
 while read -r dado_audio
 do
-    qualidade_2=$(echo "$dado_audio" | grep "audio only" | awk '{print $6}' | grep -Eo '[0-9]{0,9}k')
+    qualidade_2=$(echo "$dado_audio" | grep "audio only" | grep -oE '[0-9]{0,9}k' | head -n 1)
     if [ "${qualidade_2/k/}" -gt "$qualidade_1" ]; then
         qualidade_1=${qualidade_2/k/}
         melhor_audio=$dado_audio
@@ -23,13 +23,14 @@ done <<< $dados_do_audio
 
 echo "Melhor áudio: $id_audio"
 echo "$melhor_audio"
+echo ""
 
 ##################################################
 
 qualidade_1=0
 while read -r dado_video
 do
-    qualidade_2=$(echo "$dado_video" | grep -v "audio only" | grep -E '[0-9]{0,9}k' | awk '{print $5}' | grep -Eo '[0-9]{0,9}k')
+    qualidade_2=$(echo "$dado_video" | grep -v "audio only" | grep -oE '[0-9]{0,9}k' | head -n 1)
     if [ "${qualidade_2/k/}" -gt "$qualidade_1" ]; then
         qualidade_1=${qualidade_2/k/}
         melhor_video=$dado_video
@@ -39,6 +40,9 @@ done <<< $dados_do_video
 
 echo "Melhor vídeo: $id_video"
 echo "$melhor_video"
+echo ""
+
+##################################################
 
 comando=$(echo "youtube-dl -f "$id_video"+"$id_audio" "$url_video"")
 
