@@ -1,10 +1,11 @@
 #!/bin/bash
 
 url_video="$1"
+aplicativo='/usr/bin/yt-dlp'
 
-nome_do_video=$(youtube-dl --get-filename $url_video | cut -d "." -f1)
+nome_do_video=$($aplicativo --get-filename $url_video | cut -d "." -f1)
 
-dados=$(youtube-dl -F "$url_video")
+dados=$($aplicativo -F "$url_video")
 dados_do_audio=$(echo "$dados" | grep "audio only")
 dados_do_video=$(echo "$dados" | grep -v "audio only" | grep -E '[0-9]{0,9}k')
 
@@ -44,12 +45,12 @@ echo ""
 
 ##################################################
 
-comando=$(echo "youtube-dl -f "$id_video"+"$id_audio" "$url_video"")
+comando=$(echo "$aplicativo -f "$id_video"+"$id_audio" "$url_video"")
 
 echo "Baixando com o comando: \"$comando\""
 bash -c "$comando"
 
-echo "Reproduzindo com o VLC..."
-arquivo_de_video=$(ls -1 | grep "$nome_do_video")
+# echo "Reproduzindo com o VLC..."
+# arquivo_de_video=$(ls -1 | grep "$nome_do_video")
 
-vlc "$arquivo_de_video"
+# vlc "$arquivo_de_video"
