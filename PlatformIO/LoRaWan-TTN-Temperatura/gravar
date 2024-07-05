@@ -17,6 +17,11 @@ if [ -z "$appeui" ] || [ -z "$appkey" ]; then
     exit 1
 fi
 
+if [ ! -z "$reconfigurar" ] && [ -z "$deveui" ]; then
+    echo "É preciso preencher o valor de DEVEUI para reconfigurar."
+    exit 1
+fi
+
 APPEUI="${appeui}"                                  \
 APPKEY="${appkey}"                                  \
 DEVEUI="${deveui}"                                  \
