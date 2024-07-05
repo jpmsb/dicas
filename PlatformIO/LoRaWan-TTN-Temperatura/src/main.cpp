@@ -92,7 +92,9 @@ void setup() {
 
   // Reconfigura o módulo definindo
   // região, canais ativos e o DevEUI
-  if (reconfigurar == "true"){
+  if (strcmp(reconfigurar, "true") == 0){
+    Serial.println(F("Reconfigurando o módulo..."));
+
     // Configura o módulo para a região australiana
     if (LoRaSerial.available()){
       Serial.write(LoRaSerial.read());
@@ -140,11 +142,12 @@ void setup() {
           i++;
         }
     }
+    delay(2000);
   }
 
   //Associa a funcao que verifica a conexao do modulo ao objeto "lorawan"
   lorawan.event_listener = &event_handler;
-  Serial.println(F("Evento configurado."));
+  Serial.println(F("\nEvento configurado."));
 
   //Requisita e imprime o Device EUI do modulo
   char deveui[16];
@@ -273,7 +276,7 @@ void loop() {
 void event_handler(Event type){ 
   // Verifica se o modulo esta conectado e atualiza essa informacao
   if(type == Event::JOINED){
-    Serial.println(F("Conectado!"));
+    Serial.println(F("\nConectado!"));
     reconnect = true;
   }
 }
