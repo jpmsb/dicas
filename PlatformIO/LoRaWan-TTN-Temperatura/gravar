@@ -4,6 +4,10 @@
 appeui=""
 appkey=""
 
+# Variáveis de reconfiguração
+deveui=""
+reconfigurar=""
+
 # Intervalos em segundos
 intervalo_envio=60           # 1 minuto entre cada envio
 intervalo_desconectado=300   # 5 minutos de limitar máximo de desconexão
@@ -15,6 +19,8 @@ fi
 
 APPEUI="${appeui}"                                  \
 APPKEY="${appkey}"                                  \
+DEVEUI="${deveui}"                                  \
+RECONFIGURAR="${reconfigurar}"                      \
 INTERVALO_ENVIO="${intervalo_envio}"                \
 INTERVALO_DESCONECTADO="${intervalo_desconectado}"  \
 pio run -t upload  &&                               \
