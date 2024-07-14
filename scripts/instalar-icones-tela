@@ -230,10 +230,16 @@ wget -q --show-progress https://github.com/vinceliuice/Tela-icon-theme/archive/r
 tar -xf /tmp/Tela-icon-theme.tar.gz -C /tmp
 
 if [ -z "$dir_icones" ]; then
-    dir_icones=/usr/share/icons
+    if [ "$EUID" -eq 0 ]; then
+        dir_icones=/usr/share/icons
+    else
+        dir_icones=$HOME/.local/share/icons
+    fi
 fi
 
 rm -rf $dir_icones/Tela*
 bash /tmp/Tela-icon-theme-$ultima_tag_tela/install.sh -d $dir_icones > /dev/null
 
 ajustar_tema_icones_tela $dir_icones
+
+rm -rf /tmp/Tela-icon-theme*
