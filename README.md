@@ -1,3 +1,3 @@
 # Dicas
 
-Repositório com vários script que podem ser úteis em diversar ocasiões. Geralmente são soluções simples e pontuais.
+Repositório com vários scripts que podem ser úteis em diversar ocasiões. Geralmente são soluções simples e pontuais.
