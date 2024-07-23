@@ -1,0 +1,1548 @@
+#!/bin/bash
+
+export LC_ALL=C.UTF-8
+
+### Funções auxiliares ###
+tentar(){
+    local comando="$1"
+    local tentativas=$2
+    local tentativa_atual=0
+    local espera=5
+
+    until [ $tentativa_atual -ge $tentativas ]; do
+        eval "$comando" && break
+
+        echo -e "\nOcorreu um erro, tentando novamente em $espera segundos...\n"
+        local tentativa_atual=$((tentativa_atual + 1))
+        sleep $espera
+
+        if [ $tentativa_atual -eq $tentativas ]; then
+            echo -e "\nApós $tentativas tentativas, o comando de instalação finalizou com erro."
+            echo "Verifique se você está conectado a Internet e se há espaço suficiente na partição onde o sistema será instalado."
+
+            echo ""
+            while [[ "$tentar_novamente" != [sSnN] ]]; do
+                read -p "Você deseja tentar repetir o passo que falhou? [S/N] " tentar_novamente
+            done
+
+            if [[ "$tentar_novamente" == [sS] ]]; then
+                local tentativa_atual=0
+                unset tentar_novamente
+            else
+                echo ""
+                echo "╔══════════════════════════════════════════════════════════════════════════════════════════╗"
+                echo "║                                                                                          ║" 
+                echo "║ Você pode tentar executar esse script novamente para reiniciar o processo de instalação. ║"
+                echo "║                                                                                          ║" 
+                echo "╚══════════════════════════════════════════════════════════════════════════════════════════╝"
+                echo ""
+                echo "Atenção: é preciso limpar a partição \"$particao_raiz\" afim de evitar conflitos."
+                echo ""
+                exit 1
+            fi
+        fi
+    done
+}
+
+mostra_preenchido(){
+    local valor1="$1"
+    local valor2="$2"
+    local texto="$3"
+
+    if [ ! -z "$valor1" ] && [ ! -z "$valor2" ]; then
+        printf "$texto"
+        printf "$verde"
+        printf "$valor1"
+        printf "$normal\n"
+    fi
+}
+
+valida_pacotes(){
+    local pacotes="$1"
+    local arquivo_log_zypper="$2"
+    local argumentos_extra="$3"
+    unset pacotes_validados
+
+    local data_inicio=$(date +'%Y-%m-%d %H:%M:00')
+    zypper -n --ignore-unknown $argumentos_extra install --dry-run -y $pacotes > /dev/null 2>&1
+    local data_fim=$(date +'%Y-%m-%d %H:%M:59')
+
+    # Verificando pacotes que não existem no repositório
+    local pacotes_inexistentes=$(cat "$arquivo_log_zypper" | awk -v start="$data_inicio" -v end="$data_fim" '$0 >= start && $0 <= end' | grep -oE '.*\[zypper:req\].*not found$' | cut -d ' ' -f 7 | sort | uniq | sed 's/-[0-9].*//' | tr '\n' ' ')
+
+    # Verificando pacotes que possuam algum conflito de dependência
+    local pacotes_conflitantes=$(cat "$arquivo_log_zypper" | awk -v start="$data_inicio" -v end="$data_fim" '$0 >= start && $0 <= end' | grep -oE '.*do not install.*' | grep -oE '\S+$' | sort | uniq | sed 's/-[0-9].*//' | tr '\n' ' ')
+
+    # Filtrando pacotes
+    for pacote in ${pacotes}; do
+        if [[ ! "${pacotes_inexistentes}" == *"${pacote}"* ]] && [[ ! "${pacotes_conflitantes}" == *"${pacote}"* ]]; then
+            local pacotes_validados="$pacotes_validados $pacote"
+        fi
+    done
+
+    echo "$pacotes_validados"
+}
+
+barra_rotativa() {
+    local barra_inicial="$1"
+
+    if [ -z "$barra_inicial" ]; then
+        echo "|"
+    elif [ "$barra_inicial" == "|" ]; then
+        echo "/"
+    elif [ "$barra_inicial" == "/" ]; then
+        echo "-"
+    elif [ "$barra_inicial" == "-" ]; then
+        echo "\\"
+    else
+        echo "|"
+    fi
+}
+
+mostra_espera(){
+    local texto="$1"
+    local arquivo_sinalizador="$2"
+
+    while [ -f "$arquivo_sinalizador" ]; do
+        local barra_atual="$(barra_rotativa "$barra_atual")"
+        echo -ne "$texto [$barra_atual]\r"
+        sleep 0.1
+    done
+
+    if [ ! -z "$barra_atual" ]; then echo -ne "\033[2K\r"; fi
+}
+
+valida_pacotes_visualizado(){
+    local texto_titulo="$1"
+    local pacotes="$2"
+    local arquivo_log_zypper="$3"
+    local argumentos_extra="$4"
+    local variavel_exportada="$5"
+    local arquivo_sinalizador="$(mktemp)"
+
+    mostra_espera "$texto_titulo" "$arquivo_sinalizador" &
+    local espera_pid=$!
+    export $variavel_exportada="$(valida_pacotes "$pacotes" "$arquivo_log_zypper" "$argumentos_extra")"
+    rm "$arquivo_sinalizador"
+    wait $espera_pid
+}
+
+ajustar_tema_icones_tela(){
+    local diretorio_base="$1"
+
+    #### Ajuste no ícone de rede ####
+    sed -i '/<rect style="fill:currentColor;" class="ColorScheme-Text" x="5" y="6" width="2" height="3" rx="0" ry="0"\/>/d; /<rect style="fill:currentColor;" class="ColorScheme-Text" x="9" y="6" width="2" height="3" rx="0" ry="0"\/>/d' $diretorio_base/Tela-dark/16/devices/network-wired-activated.svg
+
+    #### Alteração dos ícones de energia para versão com melhor visualização ####
+    printf '%s\n' \
+        '<svg width="16" height="16" version="1.1" xmlns="http://www.w3.org/2000/svg">' \
+        ' <path d="m6 0v1h-2c-0.554 0-1 0.446-1 1v12c0 0.554 0.446 1 1 1h8c0.554 0 1-0.446 1-1v-12c0-0.554-0.446-1-1-1h-2v-1h-4zm2 4v3h3l-3 5v-3h-3l3-5z" fill="#555555"/>' \
+        '</svg>' | tee $diretorio_base/Tela/symbolic/status/ac-adapter-symbolic.svg > $diretorio_base/Tela-light/symbolic/status/ac-adapter-symbolic.svg
+
+    printf '%s\n' \
+        '<svg width="16" height="16" version="1.1" xmlns="http://www.w3.org/2000/svg">' \
+        ' <path d="m6 0v1h-2c-0.554 0-1 0.446-1 1v12c0 0.554 0.446 1 1 1h8c0.554 0 1-0.446 1-1v-12c0-0.554-0.446-1-1-1h-2v-1h-4zm2 4v3h3l-3 5v-3h-3l3-5z" fill="#aaaaaa"/>' \
+        '</svg>' > $diretorio_base/Tela-dark/symbolic/status/ac-adapter-symbolic.svg
+
+    echo '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="M6 1v1H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2h-3V1zm2 4a2 2 0 1 1 0 4v1H7V8h1a1 1 0 1 0-1-1H6a2 2 0 0 1 2-2zm-1 6h1v1H7z" class="warning" fill="#f57900"/></svg>' | tee $diretorio_base/Tela/symbolic/status/battery-missing-symbolic.svg > $diretorio_base/Tela-light/symbolic/status/battery-missing-symbolic.svg
+
+    printf '%s\n' \
+        '<svg width="16" height="16" enable-background="new" version="1.1" xmlns="http://www.w3.org/2000/svg">' \
+        ' <path d="m6 1v1h-3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-12h-3v-1z" fill="#555555" opacity=".3"/>' \
+        ' <path d="m3 3v11c0 0.55228 0.44772 1 1 1h8c0.55228 0 1-0.44772 1-1v-11z" fill="#555555"/>' \
+        '</svg>' | tee $diretorio_base/Tela/symbolic/status/battery-level-90-symbolic.svg > $diretorio_base/Tela-light/symbolic/status/battery-level-90-symbolic.svg
+
+    printf '%s\n' \
+        '<svg width="16" height="16" enable-background="new" version="1.1" xmlns="http://www.w3.org/2000/svg">' \
+        ' <path d="m6 1v1h-3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-12h-3v-1zm2 4v3h3l-3 5v-3h-3z" fill="#555555" opacity=".3"/>' \
+        ' <path d="m3 3v11c0 0.55228 0.44772 1 1 1h8c0.55228 0 1-0.44772 1-1v-11zm5 2v3h3l-3 5v-3h-3z" class="success" fill="#8fd68f"/>' \
+        '</svg>' | tee $diretorio_base/Tela/symbolic/status/battery-level-90-charging-symbolic.svg > $diretorio_base/Tela-light/symbolic/status/battery-level-90-charging-symbolic.svg
+
+    echo '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="M6 1v1H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2h-3V1z" opacity=".3" fill="#555555"/><path d="M3 6v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6z" fill="#555555"/></svg>' | tee $diretorio_base/Tela/symbolic/status/battery-level-80-symbolic.svg > $diretorio_base/Tela-light/symbolic/status/battery-level-80-symbolic.svg
+
+    echo '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="M6 1v1H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2h-3V1zm2 4v3h3l-3 5v-3H5z" opacity=".3" fill="#555555"/><path d="M3 6v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6H8v2h3l-3 5v-3H5l2.4-4z" class="success" fill="#8fd68f"/></svg>' | tee $diretorio_base/Tela/symbolic/status/battery-level-80-charging-symbolic.svg > $diretorio_base/Tela-light/symbolic/status/battery-level-80-charging-symbolic.svg
+
+    printf '%s\n' \
+        '<svg width="16" height="16" enable-background="new" version="1.1" xmlns="http://www.w3.org/2000/svg">' \
+        ' <path d="m6 1v1h-3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-12h-3v-1z" fill="#555555" opacity=".3"/>' \
+        ' <path d="m3 5v9c0 0.55228 0.44772 1 1 1h8c0.55228 0 1-0.44772 1-1v-9z" fill="#555555"/>' \
+        '</svg>' | tee $diretorio_base/Tela/symbolic/status/battery-level-70-symbolic.svg > $diretorio_base/Tela-light/symbolic/status/battery-level-70-symbolic.svg
+
+    printf '%s\n' \
+        '<svg width="16" height="16" enable-background="new" version="1.1" xmlns="http://www.w3.org/2000/svg">' \
+        ' <path d="m6 1v1h-3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-12h-3v-1zm2 4v3h3l-3 5v-3h-3z" fill="#555555" opacity=".3"/>' \
+        ' <path d="m3 5v9a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-9h-5v3h3l-3 5v-3h-3l3-5h-5z" class="success" fill="#8fd68f"/>' \
+        '</svg>' | tee $diretorio_base/Tela/symbolic/status/battery-level-70-charging-symbolic.svg > $diretorio_base/Tela-light/symbolic/status/battery-level-70-charging-symbolic.svg
+
+    echo '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="M6 1v1H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2h-3V1z" opacity=".3" fill="#555555"/><path d="M3 8v6a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V8z" fill="#555555"/></svg>' | tee $diretorio_base/Tela/symbolic/status/battery-level-60-symbolic.svg > $diretorio_base/Tela-light/symbolic/status/battery-level-60-symbolic.svg
+
+    echo '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="M6 1v1H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2h-3V1zm2 4v3h3l-3 5v-3H5z" opacity=".3" fill="#555555"/><path d="M3 8v6a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V8h-2l-3 5v-3H5l1.2-2z" class="success" fill="#8fd68f"/></svg>' | tee $diretorio_base/Tela/symbolic/status/battery-level-60-charging-symbolic.svg > $diretorio_base/Tela-light/symbolic/status/battery-level-60-charging-symbolic.svg
+
+    printf '%s\n' \
+        '<svg width="16" height="16" enable-background="new" version="1.1" xmlns="http://www.w3.org/2000/svg">' \
+        ' <path d="m6 1v1h-3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-12h-3v-1z" fill="#555555" opacity=".3"/>' \
+        ' <path d="m3 8v6c0 0.55228 0.44772 1 1 1h8c0.55228 0 1-0.44772 1-1v-6z" fill="#555555"/>' \
+        '</svg>' | tee $diretorio_base/Tela/symbolic/status/battery-level-50-symbolic.svg > $diretorio_base/Tela-light/symbolic/status/battery-level-50-symbolic.svg
+
+    echo '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="M6 1v1H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2h-3V1zm2 4v3h3l-3 5v-3H5z" opacity=".3" fill="#555555"/><path d="M3 8v6a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V8h-2l-3 5v-3H5l1.2-2z" class="success" fill="#8fd68f"/></svg>' | tee $diretorio_base/Tela/symbolic/status/battery-level-50-charging-symbolic.svg > $diretorio_base/Tela-light/symbolic/status/battery-level-50-charging-symbolic.svg
+
+    echo '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="M6 1v1H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2h-3V1z" opacity=".3" fill="#555555"/><path d="M3 10v4a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-4z" fill="#555555"/></svg>' | tee $diretorio_base/Tela/symbolic/status/battery-level-40-symbolic.svg > $diretorio_base/Tela-light/symbolic/status/battery-level-40-symbolic.svg
+
+    echo '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="M6 1v1H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2h-3V1zm2 4v3h3l-3 5v-3H5z" opacity=".3" fill="#555555"/><path d="M3 10v4a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-4H9.801L8 13v-3H5z" class="success" fill="#8fd68f"/></svg>' | tee $diretorio_base/Tela/symbolic/status/battery-level-40-charging-symbolic.svg > $diretorio_base/Tela-light/symbolic/status/battery-level-40-charging-symbolic.svg
+
+    printf '%s\n' \
+        '<svg width="16" height="16" enable-background="new" version="1.1" xmlns="http://www.w3.org/2000/svg">' \
+        ' <path d="m6 1v1h-3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-12h-3v-1z" fill="#555555" opacity=".3"/>' \
+        ' <path d="m3 11v3c0 0.55228 0.44772 1 1 1h8c0.55228 0 1-0.44772 1-1v-3z" class="warning" fill="#ff7f2a"/>' \
+        '</svg>' | tee $diretorio_base/Tela/symbolic/status/battery-level-30-symbolic.svg > $diretorio_base/Tela-light/symbolic/status/battery-level-30-symbolic.svg
+
+    printf '%s\n' \
+        '<svg width="16" height="16" version="1.1" xmlns="http://www.w3.org/2000/svg">' \
+        ' <path d="m6 1v1h-3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-12h-3v-1zm2 4v3h3l-3 5v-3h-3z" fill="#555555" opacity=".3"/>' \
+        ' <path d="m3 11v3a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-3h-3.8008l-1.1992 2v-2h-5z" class="warning" fill="#ff7f2a"/>' \
+        '</svg>' | tee $diretorio_base/Tela/symbolic/status/battery-level-30-charging-symbolic.svg > $diretorio_base/Tela-light/symbolic/status/battery-level-30-charging-symbolic.svg
+
+    printf '%s\n' \
+        '<svg width="16" height="16" version="1.1" xmlns="http://www.w3.org/2000/svg">' \
+        ' <path class="error" d="m10 1v1h3s-3e-5 0.446-3e-5 1v11c0 0.554-0.446 1-1 1h-8c-0.554 0-1-0.446-1-1v-11c0-0.554 3e-5 -1 3e-5 -1h3v-1z" fill="#e74c3c" opacity=".35"/>' \
+        ' <path class="error" d="m13 12v2c0 0.554-0.446 1-1 1h-8c-0.554 0-1-0.446-1-1v-2z" fill="#e74c3c"/>' \
+        '</svg>' | tee $diretorio_base/Tela/symbolic/status/battery-level-20-symbolic.svg > $diretorio_base/Tela-light/symbolic/status/battery-level-20-symbolic.svg
+
+    printf '%s\n' \
+        '<svg width="16" height="16" enable-background="new" version="1.1" xmlns="http://www.w3.org/2000/svg">' \
+        ' <path d="m6 1v1h-3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-12h-3v-1zm2 4v3h3l-3 5v-3h-3z" class="error" fill="#e74c3c" opacity=".35"/>' \
+        ' <path d="m3 13v1a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1h-5-5z" class="error" fill="#e74c3c"/>' \
+        '</svg>' | tee $diretorio_base/Tela/symbolic/status/battery-level-20-charging-symbolic.svg > $diretorio_base/Tela-light/symbolic/status/battery-level-20-charging-symbolic.svg
+
+    printf '%s\n' \
+        '<svg width="16" height="16" enable-background="new" version="1.1" xmlns="http://www.w3.org/2000/svg">' \
+        ' <path d="m6 1v1h-3v1 11c0 0.554 0.446 1 1 1h4.7129c-1.0343-0.82662-1.7129-2.0821-1.7129-3.5 0-2.4734 2.0266-4.5 4.5-4.5 0.52807 0 1.028 0.10993 1.5 0.2793v-4.2793-1h-3v-1h-4zm4 8.6172c-0.57873 0.45573-1 1.0799-1 1.8828s0.42127 1.4271 1 1.8828v-0.38281-1-2.3828z" class="error" fill="#e74c3c" opacity=".35"/>' \
+        ' <path d="m3 13v1c0 0.554 0.446 1 1 1h4.7129c-0.6491-0.51876-1.1482-1.2047-1.4336-2h-4.2793zm6.5918 0c0.12301 0.13878 0.26017 0.26624 0.4082 0.38281v-0.38281h-0.4082z" class="error" fill="#e74c3c"/>' \
+        ' <path class="warning" d="m11.5 8a3.5 3.5 0 0 0-3.5 3.5 3.5 3.5 0 0 0 3.5 3.5 3.5 3.5 0 0 0 3.5-3.5 3.5 3.5 0 0 0-3.5-3.5zm-0.5 1h1v3h-1v-3zm0 4h1v1h-1v-1z" fill="#ff7f2a"/>' \
+        '</svg>' | tee $diretorio_base/Tela/symbolic/status/battery-level-10-symbolic.svg > $diretorio_base/Tela-light/symbolic/status/battery-level-10-symbolic.svg
+
+    printf '%s\n' \
+        '<svg width="16" height="16" enable-background="new" version="1.1" xmlns="http://www.w3.org/2000/svg">' \
+        ' <path d="m6 1v1h-3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-12h-3v-1zm2 4v3h3l-3 5v-3h-3z" class="error" fill="#e74c3c" opacity=".35"/>' \
+        ' <path d="m3 13v1a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1h-5-5z" class="error" fill="#e74c3c"/>' \
+        '</svg>' | tee $diretorio_base/Tela/symbolic/status/battery-level-10-charging-symbolic.svg > $diretorio_base/Tela-light/symbolic/status/battery-level-10-charging-symbolic.svg
+
+    echo '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="M6 1v1H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2h-3V1z" fill="#555555"/></svg>' | tee $diretorio_base/Tela/symbolic/status/battery-full-symbolic.svg > $diretorio_base/Tela-light/symbolic/status/battery-full-symbolic.svg
+
+    echo '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="M6 1v1H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2h-3V1zm2 4v3h3l-3 5v-3H5z" class="success" fill="#8fd68f"/></svg>' | tee $diretorio_base/Tela/symbolic/status/battery-full-charging-symbolic.svg > $diretorio_base/Tela-light/symbolic/status/battery-full-charging-symbolic.svg
+
+    printf '%s\n' \
+        '<svg width="16" height="16" version="1.1" xmlns="http://www.w3.org/2000/svg">' \
+        ' <path d="M6 1v1H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2h-3V1zm2 4v3h3l-3 5v-3H5z" fill="#555555"/>' \
+        '</svg>' | tee $diretorio_base/Tela/symbolic/status/battery-full-charged-symbolic.svg > $diretorio_base/Tela-light/symbolic/status/battery-full-charged-symbolic.svg
+
+    printf '%s\n' \
+        '<svg width="16" height="16" version="1.1" xmlns="http://www.w3.org/2000/svg">' \
+        ' <path class="error" d="m5.9998 1.0034v1h-3v12c2e-5 1 1 1 1 1h8c1 0 1-1 1-1v-12h-3v-1zm1 3h2v4l-0.25 2h-1.5l-0.25-2zm0 7h2v2h-2z" fill="#e74c3c"/>' \
+        '</svg>' | tee $diretorio_base/Tela/symbolic/status/battery-empty-symbolic.svg > $diretorio_base/Tela-light/symbolic/status/battery-empty-symbolic.svg
+
+    echo '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="M6 1v1H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2h-3V1zm2 4v3h3l-3 5v-3H5z" opacity=".3" fill="#555555"/></svg>' | tee $diretorio_base/Tela/symbolic/status/battery-empty-charging-symbolic.svg > $diretorio_base/Tela-light/symbolic/status/battery-empty-charging-symbolic.svg
+
+    echo '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="M6 1v1H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2h-3V1zm2 4a2 2 0 1 1 0 4v1H7V8h1a1 1 0 1 0-1-1H6a2 2 0 0 1 2-2zm-1 6h1v1H7z" class="warning" fill="#f57900"/></svg>' > $diretorio_base/Tela-dark/symbolic/status/battery-missing-symbolic.svg
+
+    printf '%s\n' \
+        '<svg width="16" height="16" enable-background="new" version="1.1" xmlns="http://www.w3.org/2000/svg">' \
+        ' <path d="m6 1v1h-3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-12h-3v-1z" fill="#aaaaaa" opacity=".3"/>' \
+        ' <path d="m3 3v11c0 0.55228 0.44772 1 1 1h8c0.55228 0 1-0.44772 1-1v-11z" fill="#aaaaaa"/>' \
+        '</svg>' > $diretorio_base/Tela-dark/symbolic/status/battery-level-90-symbolic.svg
+
+    printf '%s\n' \
+        '<svg width="16" height="16" enable-background="new" version="1.1" xmlns="http://www.w3.org/2000/svg">' \
+        ' <path d="m6 1v1h-3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-12h-3v-1zm2 4v3h3l-3 5v-3h-3z" fill="#aaaaaa" opacity=".3"/>' \
+        ' <path d="m3 3v11c0 0.55228 0.44772 1 1 1h8c0.55228 0 1-0.44772 1-1v-11zm5 2v3h3l-3 5v-3h-3z" class="success" fill="#8fd68f"/>' \
+        '</svg>' > $diretorio_base/Tela-dark/symbolic/status/battery-level-90-charging-symbolic.svg
+
+    echo '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="M6 1v1H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2h-3V1z" opacity=".3" fill="#aaaaaa"/><path d="M3 6v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6z" fill="#aaaaaa"/></svg>' > $diretorio_base/Tela-dark/symbolic/status/battery-level-80-symbolic.svg
+
+    echo '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="M6 1v1H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2h-3V1zm2 4v3h3l-3 5v-3H5z" opacity=".3" fill="#aaaaaa"/><path d="M3 6v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6H8v2h3l-3 5v-3H5l2.4-4z" class="success" fill="#8fd68f"/></svg>' > $diretorio_base/Tela-dark/symbolic/status/battery-level-80-charging-symbolic.svg
+
+    printf '%s\n' \
+        '<svg width="16" height="16" enable-background="new" version="1.1" xmlns="http://www.w3.org/2000/svg">' \
+        ' <path d="m6 1v1h-3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-12h-3v-1z" fill="#aaaaaa" opacity=".3"/>' \
+        ' <path d="m3 5v9c0 0.55228 0.44772 1 1 1h8c0.55228 0 1-0.44772 1-1v-9z" fill="#aaaaaa"/>' \
+        '</svg>' > $diretorio_base/Tela-dark/symbolic/status/battery-level-70-symbolic.svg
+
+    printf '%s\n' \
+        '<svg width="16" height="16" enable-background="new" version="1.1" xmlns="http://www.w3.org/2000/svg">' \
+        ' <path d="m6 1v1h-3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-12h-3v-1zm2 4v3h3l-3 5v-3h-3z" fill="#aaaaaa" opacity=".3"/>' \
+        ' <path d="m3 5v9a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-9h-5v3h3l-3 5v-3h-3l3-5h-5z" class="success" fill="#8fd68f"/>' \
+        '</svg>' > $diretorio_base/Tela-dark/symbolic/status/battery-level-70-charging-symbolic.svg
+
+    echo '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="M6 1v1H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2h-3V1z" opacity=".3" fill="#aaaaaa"/><path d="M3 8v6a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V8z" fill="#aaaaaa"/></svg>' > $diretorio_base/Tela-dark/symbolic/status/battery-level-60-symbolic.svg
+
+    echo '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="M6 1v1H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2h-3V1zm2 4v3h3l-3 5v-3H5z" opacity=".3" fill="#aaaaaa"/><path d="M3 8v6a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V8h-2l-3 5v-3H5l1.2-2z" class="success" fill="#8fd68f"/></svg>' > $diretorio_base/Tela-dark/symbolic/status/battery-level-60-charging-symbolic.svg
+
+    printf '%s\n' \
+        '<svg width="16" height="16" enable-background="new" version="1.1" xmlns="http://www.w3.org/2000/svg">' \
+        ' <path d="m6 1v1h-3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-12h-3v-1z" fill="#aaaaaa" opacity=".3"/>' \
+        ' <path d="m3 8v6c0 0.55228 0.44772 1 1 1h8c0.55228 0 1-0.44772 1-1v-6z" fill="#aaaaaa"/>' \
+        '</svg>' > $diretorio_base/Tela-dark/symbolic/status/battery-level-50-symbolic.svg
+
+    echo '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="M6 1v1H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2h-3V1zm2 4v3h3l-3 5v-3H5z" opacity=".3" fill="#aaaaaa"/><path d="M3 8v6a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V8h-2l-3 5v-3H5l1.2-2z" class="success" fill="#8fd68f"/></svg>' > $diretorio_base/Tela-dark/symbolic/status/battery-level-50-charging-symbolic.svg
+
+    echo '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="M6 1v1H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2h-3V1z" opacity=".3" fill="#aaaaaa"/><path d="M3 10v4a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-4z" fill="#aaaaaa"/></svg>' > $diretorio_base/Tela-dark/symbolic/status/battery-level-40-symbolic.svg
+
+    echo '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="M6 1v1H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2h-3V1zm2 4v3h3l-3 5v-3H5z" opacity=".3" fill="#aaaaaa"/><path d="M3 10v4a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-4H9.801L8 13v-3H5z" class="success" fill="#8fd68f"/></svg>' > $diretorio_base/Tela-dark/symbolic/status/battery-level-40-charging-symbolic.svg
+
+    printf '%s\n' \
+        '<svg width="16" height="16" enable-background="new" version="1.1" xmlns="http://www.w3.org/2000/svg">' \
+        ' <path d="m6 1v1h-3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-12h-3v-1z" fill="#aaaaaa" opacity=".3"/>' \
+        ' <path d="m3 11v3c0 0.55228 0.44772 1 1 1h8c0.55228 0 1-0.44772 1-1v-3z" class="warning" fill="#ff7f2a"/>' \
+        '</svg>' > $diretorio_base/Tela-dark/symbolic/status/battery-level-30-symbolic.svg
+
+    printf '%s\n' \
+        '<svg width="16" height="16" version="1.1" xmlns="http://www.w3.org/2000/svg">' \
+        ' <path d="m6 1v1h-3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-12h-3v-1zm2 4v3h3l-3 5v-3h-3z" fill="#aaaaaa" opacity=".3"/>' \
+        ' <path d="m3 11v3a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-3h-3.8008l-1.1992 2v-2h-5z" class="warning" fill="#ff7f2a"/>' \
+        '</svg>' > $diretorio_base/Tela-dark/symbolic/status/battery-level-30-charging-symbolic.svg
+
+    printf '%s\n' \
+        '<svg width="16" height="16" version="1.1" xmlns="http://www.w3.org/2000/svg">' \
+        ' <path class="error" d="m10 1v1h3s-3e-5 0.446-3e-5 1v11c0 0.554-0.446 1-1 1h-8c-0.554 0-1-0.446-1-1v-11c0-0.554 3e-5 -1 3e-5 -1h3v-1z" fill="#e74c3c" opacity=".35"/>' \
+        ' <path class="error" d="m13 12v2c0 0.554-0.446 1-1 1h-8c-0.554 0-1-0.446-1-1v-2z" fill="#e74c3c"/>' \
+        '</svg>' > $diretorio_base/Tela-dark/symbolic/status/battery-level-20-symbolic.svg
+
+    printf '%s\n' \
+        '<svg width="16" height="16" enable-background="new" version="1.1" xmlns="http://www.w3.org/2000/svg">' \
+        ' <path d="m6 1v1h-3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-12h-3v-1zm2 4v3h3l-3 5v-3h-3z" class="error" fill="#e74c3c" opacity=".35"/>' \
+        ' <path d="m3 13v1a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1h-5-5z" class="error" fill="#e74c3c"/>' \
+        '</svg>' > $diretorio_base/Tela-dark/symbolic/status/battery-level-20-charging-symbolic.svg
+
+    printf '%s\n' \
+        '<svg width="16" height="16" enable-background="new" version="1.1" xmlns="http://www.w3.org/2000/svg">' \
+        ' <path d="m6 1v1h-3v1 11c0 0.554 0.446 1 1 1h4.7129c-1.0343-0.82662-1.7129-2.0821-1.7129-3.5 0-2.4734 2.0266-4.5 4.5-4.5 0.52807 0 1.028 0.10993 1.5 0.2793v-4.2793-1h-3v-1h-4zm4 8.6172c-0.57873 0.45573-1 1.0799-1 1.8828s0.42127 1.4271 1 1.8828v-0.38281-1-2.3828z" class="error" fill="#e74c3c" opacity=".35"/>' \
+        ' <path d="m3 13v1c0 0.554 0.446 1 1 1h4.7129c-0.6491-0.51876-1.1482-1.2047-1.4336-2h-4.2793zm6.5918 0c0.12301 0.13878 0.26017 0.26624 0.4082 0.38281v-0.38281h-0.4082z" class="error" fill="#e74c3c"/>' \
+        ' <path class="warning" d="m11.5 8a3.5 3.5 0 0 0-3.5 3.5 3.5 3.5 0 0 0 3.5 3.5 3.5 3.5 0 0 0 3.5-3.5 3.5 3.5 0 0 0-3.5-3.5zm-0.5 1h1v3h-1v-3zm0 4h1v1h-1v-1z" fill="#ff7f2a"/>' \
+        '</svg>' > $diretorio_base/Tela-dark/symbolic/status/battery-level-10-symbolic.svg
+
+    printf '%s\n' \
+        '<svg width="16" height="16" enable-background="new" version="1.1" xmlns="http://www.w3.org/2000/svg">' \
+        ' <path d="m6 1v1h-3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-12h-3v-1zm2 4v3h3l-3 5v-3h-3z" class="error" fill="#e74c3c" opacity=".35"/>' \
+        ' <path d="m3 13v1a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1h-5-5z" class="error" fill="#e74c3c"/>' \
+        '</svg>' > $diretorio_base/Tela-dark/symbolic/status/battery-level-10-charging-symbolic.svg
+
+    echo '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="M6 1v1H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2h-3V1z" fill="#aaaaaa"/></svg>' > $diretorio_base/Tela-dark/symbolic/status/battery-full-symbolic.svg
+
+    echo '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="M6 1v1H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2h-3V1zm2 4v3h3l-3 5v-3H5z" class="success" fill="#8fd68f"/></svg>' > $diretorio_base/Tela-dark/symbolic/status/battery-full-charging-symbolic.svg
+
+    printf '%s\n' \
+        '<svg width="16" height="16" version="1.1" xmlns="http://www.w3.org/2000/svg">' \
+        ' <path d="M6 1v1H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2h-3V1zm2 4v3h3l-3 5v-3H5z" fill="#aaaaaa"/>' \
+        '</svg>' > $diretorio_base/Tela-dark/symbolic/status/battery-full-charged-symbolic.svg
+
+    printf '%s\n' \
+        '<svg width="16" height="16" version="1.1" xmlns="http://www.w3.org/2000/svg">' \
+        ' <path class="error" d="m5.9998 1.0034v1h-3v12c2e-5 1 1 1 1 1h8c1 0 1-1 1-1v-12h-3v-1zm1 3h2v4l-0.25 2h-1.5l-0.25-2zm0 7h2v2h-2z" fill="#e74c3c"/>' \
+        '</svg>' > $diretorio_base/Tela-dark/symbolic/status/battery-empty-symbolic.svg
+
+    echo '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><path d="M6 1v1H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2h-3V1zm2 4v3h3l-3 5v-3H5z" opacity=".3" fill="#aaaaaa"/></svg>' > $diretorio_base/Tela-dark/symbolic/status/battery-empty-charging-symbolic.svg
+
+    # Remoção da herança do tema Breeze
+    sed -i '/^Inherits=/ s/,breeze//; /^Inherits=/ s/breeze,//; /^Inherits=/ s/breeze//' $diretorio_base/Tela/index.theme
+    sed -i '/^Inherits=/ s/,breeze//; /^Inherits=/ s/breeze,//; /^Inherits=/ s/breeze//' $diretorio_base/Tela-light/index.theme
+    sed -i '/^Inherits=/ s/,breeze//; /^Inherits=/ s/breeze,//; /^Inherits=/ s/breeze//' $diretorio_base/Tela-dark/index.theme
+
+    # Atualizando o cache de ícones
+    gtk-update-icon-cache -q -f $diretorio_base/Tela
+    gtk-update-icon-cache -q -f $diretorio_base/Tela-light
+    gtk-update-icon-cache -q -f $diretorio_base/Tela-dark
+}
+
+criar_esquema_chameleon_breeze_dark(){
+    printf '%s\n'                          \
+        '[ColorEffects:Disabled]'          \
+        'ChangeSelectionColor='            \
+        'Color=56,56,56'                   \
+        'ColorAmount=0'                    \
+        'ColorEffect=0'                    \
+        'ContrastAmount=0.65'              \
+        'ContrastEffect=1'                 \
+        'Enable='                          \
+        'IntensityAmount=0.1'              \
+        'IntensityEffect=2'                \
+        ''                                 \
+        '[ColorEffects:Inactive]'          \
+        'ChangeSelectionColor=true'        \
+        'Color=112,111,110'                \
+        'ColorAmount=0.025'                \
+        'ColorEffect=2'                    \
+        'ContrastAmount=0.1'               \
+        'ContrastEffect=2'                 \
+        'Enable=false'                     \
+        'IntensityAmount=0'                \
+        'IntensityEffect=0'                \
+        ''                                 \
+        '[Colors:Button]'                  \
+        'BackgroundAlternate=14,131,113'   \
+        'BackgroundNormal=49,54,59'        \
+        'DecorationFocus=0,164,137'        \
+        'DecorationHover=0,164,137'        \
+        'ForegroundActive=0,164,137'       \
+        'ForegroundInactive=161,169,177'   \
+        'ForegroundLink=0,164,137'         \
+        'ForegroundNegative=218,68,83'     \
+        'ForegroundNeutral=246,116,0'      \
+        'ForegroundNormal=252,252,252'     \
+        'ForegroundPositive=39,174,96'     \
+        'ForegroundVisited=155,89,182'     \
+        ''                                 \
+        '[Colors:Complementary]'           \
+        'BackgroundAlternate=30,87,116'    \
+        'BackgroundNormal=42,46,50'        \
+        'DecorationFocus=0,164,137'        \
+        'DecorationHover=0,164,137'        \
+        'ForegroundActive=0,164,137'       \
+        'ForegroundInactive=161,169,177'   \
+        'ForegroundLink=0,164,137'         \
+        'ForegroundNegative=218,68,83'     \
+        'ForegroundNeutral=246,116,0'      \
+        'ForegroundNormal=252,252,252'     \
+        'ForegroundPositive=39,174,96'     \
+        'ForegroundVisited=155,89,182'     \
+        ''                                 \
+        '[Colors:Header]'                  \
+        'BackgroundAlternate=42,46,50'     \
+        'BackgroundNormal=49,54,59'        \
+        'DecorationFocus=0,164,137'        \
+        'DecorationHover=0,164,137'        \
+        'ForegroundActive=0,164,137'       \
+        'ForegroundInactive=161,169,177'   \
+        'ForegroundLink=0,164,137'         \
+        'ForegroundNegative=218,68,83'     \
+        'ForegroundNeutral=246,116,0'      \
+        'ForegroundNormal=252,252,252'     \
+        'ForegroundPositive=39,174,96'     \
+        'ForegroundVisited=155,89,182'     \
+        ''                                 \
+        '[Colors:Header][Inactive]'        \
+        'BackgroundAlternate=49,54,59'     \
+        'BackgroundNormal=42,46,50'        \
+        'DecorationFocus=61,174,233'       \
+        'DecorationHover=61,174,233'       \
+        'ForegroundActive=61,174,233'      \
+        'ForegroundInactive=161,169,177'   \
+        'ForegroundLink=29,153,243'        \
+        'ForegroundNegative=218,68,83'     \
+        'ForegroundNeutral=246,116,0'      \
+        'ForegroundNormal=252,252,252'     \
+        'ForegroundPositive=39,174,96'     \
+        'ForegroundVisited=155,89,182'     \
+        ''                                 \
+        '[Colors:Selection]'               \
+        'BackgroundAlternate=8,123,105'    \
+        'BackgroundNormal=8,123,105'       \
+        'DecorationFocus=0,164,137'        \
+        'DecorationHover=0,164,137'        \
+        'ForegroundActive=0,164,137'       \
+        'ForegroundInactive=255,255,255'   \
+        'ForegroundLink=0,164,137'         \
+        'ForegroundNegative=176,55,69'     \
+        'ForegroundNeutral=198,92,0'       \
+        'ForegroundNormal=255,255,255'     \
+        'ForegroundPositive=23,104,57'     \
+        'ForegroundVisited=155,89,182'     \
+        ''                                 \
+        '[Colors:Tooltip]'                 \
+        'BackgroundAlternate=42,46,50'     \
+        'BackgroundNormal=49,54,59'        \
+        'DecorationFocus=0,164,137'        \
+        'DecorationHover=0,164,137'        \
+        'ForegroundActive=0,164,137'       \
+        'ForegroundInactive=161,169,177'   \
+        'ForegroundLink=0,164,137'         \
+        'ForegroundNegative=218,68,83'     \
+        'ForegroundNeutral=246,116,0'      \
+        'ForegroundNormal=252,252,252'     \
+        'ForegroundPositive=39,174,96'     \
+        'ForegroundVisited=155,89,182'     \
+        ''                                 \
+        '[Colors:View]'                    \
+        'BackgroundAlternate=35,38,41'     \
+        'BackgroundNormal=27,30,32'        \
+        'DecorationFocus=0,164,137'        \
+        'DecorationHover=0,164,137'        \
+        'ForegroundActive=0,164,137'       \
+        'ForegroundInactive=161,169,177'   \
+        'ForegroundLink=0,164,137'         \
+        'ForegroundNegative=218,68,83'     \
+        'ForegroundNeutral=246,116,0'      \
+        'ForegroundNormal=252,252,252'     \
+        'ForegroundPositive=39,174,96'     \
+        'ForegroundVisited=155,89,182'     \
+        ''                                 \
+        '[Colors:Window]'                  \
+        'BackgroundAlternate=49,54,59'     \
+        'BackgroundNormal=42,46,50'        \
+        'DecorationFocus=0,164,137'        \
+        'DecorationHover=0,164,137'        \
+        'ForegroundActive=0,164,137'       \
+        'ForegroundInactive=161,169,177'   \
+        'ForegroundLink=0,164,137'         \
+        'ForegroundNegative=218,68,83'     \
+        'ForegroundNeutral=246,116,0'      \
+        'ForegroundNormal=252,252,252'     \
+        'ForegroundPositive=39,174,96'     \
+        'ForegroundVisited=155,89,182'     \
+        ''                                 \
+        '[General]'                        \
+        'ColorScheme=ChameleonBreezeDark'  \
+        'Name=Chameleon Breeze Dark'       \
+        'shadeSortColumn=true'             \
+        ''                                 \
+        '[KDE]'                            \
+        'contrast=4'                       \
+        ''                                 \
+        '[Icons]'                          \
+        'Theme=Tela-dark'                  \
+        ''                                 \
+        '[WM]'                             \
+        'activeBackground=49,54,59'        \
+        'activeBlend=252,252,252'          \
+        'activeForeground=252,252,252'     \
+        'inactiveBackground=42,46,50'      \
+        'inactiveBlend=161,169,177'        \
+        'inactiveForeground=161,169,177'
+}
+
+criar_esquema_chameleon_breeze_darker(){
+    printf '%s\n'                            \
+        '[ColorEffects:Disabled]'            \
+        'Color=112,111,110'                  \
+        'ColorAmount=0'                      \
+        'ColorEffect=0'                      \
+        'ContrastAmount=0.65'                \
+        'ContrastEffect=1'                   \
+        'IntensityAmount=0.1'                \
+        'IntensityEffect=2'                  \
+        ''                                   \
+        '[ColorEffects:Inactive]'            \
+        'ChangeSelectionColor=true'          \
+        'Color=112,111,110'                  \
+        'ColorAmount=-0.9500000000000001'    \
+        'ColorEffect=0'                      \
+        'ContrastAmount=0.1'                 \
+        'ContrastEffect=0'                   \
+        'Enable=false'                       \
+        'IntensityAmount=0'                  \
+        'IntensityEffect=0'                  \
+        ''                                   \
+        '[Colors:Button]'                    \
+        'BackgroundAlternate=20,25,31'       \
+        'BackgroundNormal=20,25,31'          \
+        'DecorationFocus=0,76,90'            \
+        'DecorationHover=0,164,137'          \
+        'ForegroundActive=222,222,222'       \
+        'ForegroundInactive=190,207,210'     \
+        'ForegroundLink=0,170,127'           \
+        'ForegroundNegative=255,85,127'      \
+        'ForegroundNeutral=0,129,149'        \
+        'ForegroundNormal=252,252,252'       \
+        'ForegroundPositive=0,164,137'       \
+        'ForegroundVisited=127,140,141'      \
+        ''                                   \
+        '[Colors:Complementary]'             \
+        'BackgroundAlternate=20,25,31'       \
+        'BackgroundNormal=22,27,34'          \
+        'DecorationFocus=0,76,90'            \
+        'DecorationHover=44,120,107'         \
+        'ForegroundActive=214,214,214'       \
+        'ForegroundInactive=163,183,188'     \
+        'ForegroundLink=44,120,107'          \
+        'ForegroundNegative=255,85,127'      \
+        'ForegroundNeutral=255,255,127'      \
+        'ForegroundPositive=61,174,233'      \
+        'ForegroundVisited=61,174,233'       \
+        ''                                   \
+        '[Colors:Selection]'                 \
+        'BackgroundAlternate=20,25,31'       \
+        'BackgroundNormal=0,164,137'         \
+        'DecorationFocus=0,76,90'            \
+        'DecorationHover=0,164,137'          \
+        'ForegroundActive=190,207,210'       \
+        'ForegroundInactive=60,174,230'      \
+        'ForegroundLink=0,170,127'           \
+        'ForegroundNegative=255,85,127'      \
+        'ForegroundNeutral=0,129,149'        \
+        'ForegroundNormal=252,252,252'       \
+        'ForegroundPositive=0,164,137'       \
+        'ForegroundVisited=191,210,211'      \
+        ''                                   \
+        '[Colors:Tooltip]'                   \
+        'BackgroundAlternate=20,25,31'       \
+        'BackgroundNormal=25,32,40'          \
+        'DecorationFocus=0,76,90'            \
+        'DecorationHover=0,164,137'          \
+        'ForegroundActive=249,183,183'       \
+        'ForegroundInactive=190,207,210'     \
+        'ForegroundLink=0,170,127'           \
+        'ForegroundNegative=255,85,127'      \
+        'ForegroundNeutral=0,129,149'        \
+        'ForegroundNormal=190,207,210'       \
+        'ForegroundPositive=0,164,137'       \
+        'ForegroundVisited=127,140,141'      \
+        ''                                   \
+        '[Colors:View]'                      \
+        'BackgroundAlternate=20,25,31'       \
+        'BackgroundNormal=20,25,31'          \
+        'DecorationFocus=0,76,90'            \
+        'DecorationHover=0,164,137'          \
+        'ForegroundActive=222,222,222'       \
+        'ForegroundInactive=137,153,158'     \
+        'ForegroundLink=0,170,127'           \
+        'ForegroundNegative=255,85,127'      \
+        'ForegroundNeutral=0,129,149'        \
+        'ForegroundNormal=252,252,252'       \
+        'ForegroundPositive=0,164,137'       \
+        'ForegroundVisited=127,140,141'      \
+        ''                                   \
+        '[Colors:Window]'                    \
+        'BackgroundAlternate=20,25,31'       \
+        'BackgroundNormal=20,25,31'          \
+        'DecorationFocus=0,76,90'            \
+        'DecorationHover=0,164,137'          \
+        'ForegroundActive=207,207,207'       \
+        'ForegroundInactive=190,207,210'     \
+        'ForegroundLink=0,170,127'           \
+        'ForegroundNegative=255,85,127'      \
+        'ForegroundNeutral=0,129,149'        \
+        'ForegroundNormal=252,252,252'       \
+        'ForegroundPositive=0,164,137'       \
+        'ForegroundVisited=127,140,141'      \
+        ''                                   \
+        '[General]'                          \
+        'ColorScheme=ChameleonBreezeDarker'  \
+        'Name=Chameleon Breeze Darker'       \
+        'TitlebarIsAccentColored=true'       \
+        'shadeSortColumn=true'               \
+        ''                                   \
+        '[KDE]'                              \
+        'contrast=4'                         \
+        ''                                   \
+        '[WM]'                               \
+        'activeBackground=20,25,31'          \
+        'activeBlend=20,25,31'               \
+        'activeForeground=190,207,210'       \
+        'inactiveBackground=20,25,31'        \
+        'inactiveBlend=20,25,31'             \
+        'inactiveForeground=127,140,141'
+}
+
+criar_arquivo_kdeglobals(){
+    printf '%s\n'                                                          \
+        '[ColorEffects:Disabled]'                                          \
+        'ChangeSelectionColor='                                            \
+        'Color=112,111,110'                                                \
+        'ColorAmount=0'                                                    \
+        'ColorEffect=0'                                                    \
+        'ContrastAmount=0.65'                                              \
+        'ContrastEffect=1'                                                 \
+        'Enable='                                                          \
+        'IntensityAmount=0.1'                                              \
+        'IntensityEffect=2'                                                \
+        ''                                                                 \
+        '[ColorEffects:Inactive]'                                          \
+        'ChangeSelectionColor=true'                                        \
+        'Color=112,111,110'                                                \
+        'ColorAmount=-0.9500000000000001'                                  \
+        'ColorEffect=0'                                                    \
+        'ContrastAmount=0.1'                                               \
+        'ContrastEffect=0'                                                 \
+        'Enable=false'                                                     \
+        'IntensityAmount=0'                                                \
+        'IntensityEffect=0'                                                \
+        ''                                                                 \
+        '[Colors:Button]'                                                  \
+        'BackgroundAlternate=20,25,31'                                     \
+        'BackgroundNormal=20,25,31'                                        \
+        'DecorationFocus=0,76,90'                                          \
+        'DecorationHover=0,164,137'                                        \
+        'ForegroundActive=222,222,222'                                     \
+        'ForegroundInactive=190,207,210'                                   \
+        'ForegroundLink=0,170,127'                                         \
+        'ForegroundNegative=255,85,127'                                    \
+        'ForegroundNeutral=0,129,149'                                      \
+        'ForegroundNormal=252,252,252'                                     \
+        'ForegroundPositive=0,164,137'                                     \
+        'ForegroundVisited=127,140,141'                                    \
+        ''                                                                 \
+        '[Colors:Complementary]'                                           \
+        'BackgroundAlternate=20,25,31'                                     \
+        'BackgroundNormal=22,27,34'                                        \
+        'DecorationFocus=0,76,90'                                          \
+        'DecorationHover=44,120,107'                                       \
+        'ForegroundActive=214,214,214'                                     \
+        'ForegroundInactive=163,183,188'                                   \
+        'ForegroundLink=44,120,107'                                        \
+        'ForegroundNegative=255,85,127'                                    \
+        'ForegroundNeutral=255,255,127'                                    \
+        'ForegroundPositive=61,174,233'                                    \
+        'ForegroundVisited=61,174,233'                                     \
+        ''                                                                 \
+        '[Colors:Selection]'                                               \
+        'BackgroundAlternate=20,25,31'                                     \
+        'BackgroundNormal=0,164,137'                                       \
+        'DecorationFocus=0,76,90'                                          \
+        'DecorationHover=0,164,137'                                        \
+        'ForegroundActive=190,207,210'                                     \
+        'ForegroundInactive=60,174,230'                                    \
+        'ForegroundLink=0,170,127'                                         \
+        'ForegroundNegative=255,85,127'                                    \
+        'ForegroundNeutral=0,129,149'                                      \
+        'ForegroundNormal=252,252,252'                                     \
+        'ForegroundPositive=0,164,137'                                     \
+        'ForegroundVisited=191,210,211'                                    \
+        ''                                                                 \
+        '[Colors:Tooltip]'                                                 \
+        'BackgroundAlternate=20,25,31'                                     \
+        'BackgroundNormal=25,32,40'                                        \
+        'DecorationFocus=0,76,90'                                          \
+        'DecorationHover=0,164,137'                                        \
+        'ForegroundActive=249,183,183'                                     \
+        'ForegroundInactive=190,207,210'                                   \
+        'ForegroundLink=0,170,127'                                         \
+        'ForegroundNegative=255,85,127'                                    \
+        'ForegroundNeutral=0,129,149'                                      \
+        'ForegroundNormal=190,207,210'                                     \
+        'ForegroundPositive=0,164,137'                                     \
+        'ForegroundVisited=127,140,141'                                    \
+        ''                                                                 \
+        '[Colors:View]'                                                    \
+        'BackgroundAlternate=20,25,31'                                     \
+        'BackgroundNormal=20,25,31'                                        \
+        'DecorationFocus=0,76,90'                                          \
+        'DecorationHover=0,164,137'                                        \
+        'ForegroundActive=222,222,222'                                     \
+        'ForegroundInactive=137,153,158'                                   \
+        'ForegroundLink=0,170,127'                                         \
+        'ForegroundNegative=255,85,127'                                    \
+        'ForegroundNeutral=0,129,149'                                      \
+        'ForegroundNormal=252,252,252'                                     \
+        'ForegroundPositive=0,164,137'                                     \
+        'ForegroundVisited=127,140,141'                                    \
+        ''                                                                 \
+        '[Colors:Window]'                                                  \
+        'BackgroundAlternate=20,25,31'                                     \
+        'BackgroundNormal=20,25,31'                                        \
+        'DecorationFocus=0,76,90'                                          \
+        'DecorationHover=0,164,137'                                        \
+        'ForegroundActive=207,207,207'                                     \
+        'ForegroundInactive=190,207,210'                                   \
+        'ForegroundLink=0,170,127'                                         \
+        'ForegroundNegative=255,85,127'                                    \
+        'ForegroundNeutral=0,129,149'                                      \
+        'ForegroundNormal=252,252,252'                                     \
+        'ForegroundPositive=0,164,137'                                     \
+        'ForegroundVisited=127,140,141'                                    \
+        ''                                                                 \
+        '[General]'                                                        \
+        'ColorSchemeHash=5508310af4509d3957ba12a0ade6f18efa27fbf5'         \
+        'LastUsedCustomAccentColor=233,58,154'                             \
+        'XftHintStyle=hintslight'                                          \
+        'XftSubPixel=rgb'                                                  \
+        'fixed=NotoMono Nerd Font Mono,9,-1,5,400,0,0,0,0,0,0,0,0,0,0,1'   \
+        'font=Open Sans,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1'                 \
+        'menuFont=Open Sans,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1'             \
+        'smallestReadableFont=Open Sans,9,-1,5,400,0,0,0,0,0,0,0,0,0,0,1'  \
+        'toolBarFont=Open Sans,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1'          \
+        ''                                                                 \
+        '[Icons]'                                                          \
+        'Theme=Tela-dark'                                                  \
+        ''                                                                 \
+        '[KDE]'                                                            \
+        'LookAndFeelPackage=org.kde.breezedark.desktop'                    \
+        ''                                                                 \
+        '[KFileDialog Settings]'                                           \
+        'Allow Expansion=false'                                            \
+        'Automatically select filename extension=true'                     \
+        'Breadcrumb Navigation=true'                                       \
+        'Decoration position=2'                                            \
+        'LocationCombo Completionmode=5'                                   \
+        'PathCombo Completionmode=5'                                       \
+        'Show Bookmarks=false'                                             \
+        'Show Full Path=false'                                             \
+        'Show Inline Previews=true'                                        \
+        'Show Preview=false'                                               \
+        'Show Speedbar=true'                                               \
+        'Show hidden files=false'                                          \
+        'Sort by=Name'                                                     \
+        'Sort directories first=true'                                      \
+        'Sort hidden files last=false'                                     \
+        'Sort reversed=false'                                              \
+        'Speedbar Width=144'                                               \
+        'View Style=DetailTree'                                            \
+        ''                                                                 \
+        '[WM]'                                                             \
+        'activeBackground=20,25,31'                                        \
+        'activeBlend=20,25,31'                                             \
+        'activeFont=Open Sans,11,-1,5,700,0,0,0,0,0,0,0,0,0,0,1,Bold'      \
+        'activeForeground=190,207,210'                                     \
+        'inactiveBackground=20,25,31'                                      \
+        'inactiveBlend=20,25,31'                                           \
+        'inactiveForeground=127,140,141'
+}
+
+ajuda(){
+    echo -e "Seu comando não possui todos os argumentos necessários. Veja o uso e exemplo abaixo:\n"
+    echo -e "Uso:\n"
+    echo "    ./$0 \"partição onde o sistema será instalado\" \"partição EFI\" \"nome de usuário\" \"seu nome completo\""
+    echo -e "\nEXEMPLO:\n"
+    echo "    ./$0 /mnt /dev/sda1 joao \"João Pedro\""
+    echo
+}
+
+
+### Variáveis preparatórias ###
+log_zypper="/var/log/zypper.log"
+tentivas_maximas=5
+verde='\033[1;32m'
+magenta='\033[1;35m'
+vermelho='\033[1;31m'
+normal='\033[0m'
+
+
+# Verifica se o comando zypper está presente
+if ! command -v "zypper" &> /dev/null; then
+    printf "$vermelho"
+    echo -e "\n O comando \"zypper\" não foi encontrado. Este script foi feito para ser executado em sistemas openSUSE.$normal\n"
+    printf "$verde"
+    echo -e " No link abaixo, pode baixar um ISO Live CD do openSUSE Tumbleweed:"
+    echo -e "     https://download.opensuse.org/tumbleweed/iso/openSUSE-Tumbleweed-XFCE-Live-x86_64-Current.iso\n"
+    echo -e " Após baixar o ISO, grave-o em um pendrive e dê boot por ele. Em seguida, abra um terminal execute este script.\n"
+    printf "$normal"
+    exit 1
+fi
+
+# Verifica se o usuário é o root
+if [ "$EUID" -ne 0 ]; then
+    printf "$vermelho"
+    echo -e "\n Este script precisa ser executado como root.\n"
+    printf "$verde"
+    echo -e " Para tal, utilize o comando \"sudo $0\" ou"
+    echo -e " execute-o como usuário root, usando os comandos:\n"
+    echo -e " \"sudo su\" e em seguida \"$0\".\n"
+    printf "$normal"
+    exit 1
+fi
+
+
+### Mensagem de boas vindas ###
+echo -e "\nOlá!! Este é o script de pós instalação do openSUSE Tumbleweed!"
+echo -e "\nNo mais, aproveite!!\n"
+
+laptop=$8
+
+### Identificação da CPUs presentes ###
+cpu_info=$(grep -o -m 1 'vendor_id.*' /proc/cpuinfo | cut -d ':' -f 2 | tr -d '[:space:]')
+
+if [ "$cpu_info" == "GenuineIntel" ]; then
+    iGPU="intel"
+elif [ "$cpu_info" == "AuthenticAMD" ]; then
+    iGPU="amd"
+fi
+
+### Identificação das GPUs presentes ###
+gpu_info=$(lspci | grep -E "VGA|3D controller")
+num_gpus=$(echo "$gpu_info" | wc -l)
+
+if echo "$gpu_info" | grep -qi 'Intel'; then
+    pacotes_intel_gpu="intel-gpu-tools intel-media-driver intel-hybrid-driver intel-vaapi-driver"
+fi
+
+if echo "$gpu_info" | grep -qi 'AMD'; then
+    pacotes_amd_gpu="radeontop radeontop-lang libvulkan_radeon libvdpau_radeonsi"
+fi
+
+if echo "$gpu_info" | grep -qi 'NVIDIA'; then
+    # Nesse caso, os pacotes vêm de um repositório
+    # próprio que será adicionado adiante
+    instalar_nvidia="Sim"
+fi
+
+
+### Interação com o usuário para coletar os dados iniciais ###
+# ajuda
+
+echo "════════════════════════════════════════════════════════"
+
+if [ -z "$laptop" ] || [[ "$laptop" != [sSnN] ]]; then
+    while [[ "$laptop" != [sSnN] ]]; do
+        read -p "A instalação será realizada em um notebook? [S/N] " laptop
+    done
+else
+    printf "A instalação será realizada em um notebook? [S/N] "
+    printf "$verde"
+    printf "$laptop"
+    printf "$normal\n"
+fi
+
+echo -e "\nInformações coletadas:"
+printf " - Suporte para placas de vídeo da NVIDIA: "
+
+if [[ "$instalar_nvidia" == "Sim" ]]; then
+    printf "$verde"
+    printf "Sim"
+    printf "$normal\n"
+else
+    printf "$vermelho"
+    printf "Não"
+    printf "$normal\n"
+fi
+
+echo -n " - Instalação em notebook: "
+
+if [[ "$laptop" == [sS] ]]; then
+    printf "$verde"
+    echo "Sim"
+    printf "$normal\n"
+else
+    printf "$vermelho"
+    echo "Não"
+    printf "$normal\n"
+fi
+
+echo -e "\n"
+
+while [[ "$resposta" != [sSnN] ]]; do
+    read -p "As informações acima estão corretas? [S/N] " resposta
+done
+
+if [[ "$resposta" == [nN] ]]; then
+    echo -e "\nA instalação foi cancelada e nada foi alterado no seu computador. Execute-a novamente para recomeçar."
+    echo ""
+    exit 0
+fi
+
+### Instalação do sistema base ###
+pacotes_iniciais="libz1 libz1-x86-64-v3 zypper-needs-restarting systemd-lang systemd-container ca-certificates ca-certificates-mozilla curl gawk grep-lang sed-lang tar-lang xz-lang gzip procps-lang procps which systemd-presets-branding-openSUSE suse-module-tools suse-module-tools-scriptlets diffutils-lang man man-pages man-pages-posix man-pages-pt_BR tlp"
+
+comando_1="zypper refresh -f"
+comando_2="zypper -n --ignore-unknown install -y -t product openSUSE"
+comando_3="zypper -n --ignore-unknown install -y $pacotes_iniciais"
+comando_4="zypper -n addlocale pt_BR"
+
+tentar "$comando_1 && $comando_2 && $comando_3 && $comando_4" $tentivas_maximas
+
+### Bloqueando pacotes problemáticos ###
+zypper addlock ifplugd
+
+### Adicionando os repositórios principais ###
+echo -e "\nAdicionando repositórios principais.\n"
+rm -f /etc/zypp/repos.d/*.repo
+
+echo '[Open_Source_Software]
+name=Open Source Software
+enabled=1
+autorefresh=1
+baseurl=http://download.opensuse.org/tumbleweed/repo/oss/
+path=/
+type=rpm-md
+priority=80
+keeppackages=0' > /etc/zypp/repos.d/Open_Source_Software.repo
+
+echo '[Non_Open_Source_Software]
+name=Non Open Source Software
+enabled=1
+autorefresh=1
+baseurl=http://download.opensuse.org/tumbleweed/repo/non-oss/
+path=/
+type=rpm-md
+priority=80
+keeppackages=0' > /etc/zypp/repos.d/Non_Open_Source_Software.repo
+
+echo '[Update]
+name=Update
+enabled=1
+autorefresh=1
+baseurl=http://download.opensuse.org/update/tumbleweed/
+type=rpm-md
+priority=70
+keeppackages=0' > /etc/zypp/repos.d/Update.repo
+
+echo '[Debug Packages]
+name=Debug Packages
+enabled=1
+autorefresh=0
+baseurl=http://download.opensuse.org/tumbleweed/repo/debug/
+path=/
+keeppackages=0' > /etc/zypp/repos.d/Debug_Packages.repo
+
+### Instalando o restante dos pacotes do sistema base ###
+echo -e "\nInstalando padrões do sistema base.\n"
+
+comando_1="zypper -n --gpg-auto-import-keys refresh -f"
+comando_2="zypper -n --ignore-unknown install --download-in-advance -y -t pattern base enhanced_base minimal_base basesystem"
+
+tentar "$comando_1 && $comando_2" $tentivas_maximas
+
+### Adicionando os repositórios extras ###
+echo -e "\nAdicionando repositórios extras.\n"
+
+echo '[Open_Source_Software_Leap]
+name=Open Source Software Leap
+enabled=1
+autorefresh=1
+baseurl=http://download.opensuse.org/distribution/openSUSE-stable/repo/oss/
+path=/
+type=rpm-md
+priority=99
+keeppackages=0' > /etc/zypp/repos.d/Open_Source_Software_Leap.repo
+
+echo "[Emulators]
+name=Emulators
+enabled=1
+autorefresh=1
+baseurl=http://download.opensuse.org/repositories/Emulators/openSUSE_Tumbleweed/
+path=/
+type=rpm-md
+priority=60
+keeppackages=0" > /etc/zypp/repos.d/Emulators.repo
+
+echo '[Multimedia_Proaudio]
+name=Multimedia Proaudio
+baseurl=http://download.opensuse.org/repositories/multimedia:/proaudio/openSUSE_Tumbleweed/
+enabled=1
+type=rpm-md
+gpgcheck=1
+gpgkey=https://download.opensuse.org/repositories/multimedia:/proaudio/openSUSE_Tumbleweed/repodata/repomd.xml.key
+autorefresh=1' > /etc/zypp/repos.d/Multimedia_Proaudio.repo
+
+echo '[OpenH.264]
+name=OpenH.264
+enabled=1
+autorefresh=1
+baseurl=http://codecs.opensuse.org/openh264/openSUSE_Tumbleweed/
+path=/
+type=rpm-md
+keeppackages=0' > /etc/zypp/repos.d/OpenH.264.repo
+
+if [[ $instalar_nvidia = "Sim" ]]; then
+    echo -e '[NVIDIA]\nname=NVIDIA\nenabled=1\nautorefresh=1\nbaseurl=http://download.nvidia.com/opensuse/tumbleweed\ntype=rpm-md\nkeeppackages=0' > /etc/zypp/repos.d/NVIDIA.repo
+fi
+
+echo '[Packman_Repository]
+name=Packman Repository
+enabled=1
+autorefresh=1
+baseurl=http://ftp.gwdg.de/pub/linux/misc/packman/suse/openSUSE_Tumbleweed/
+path=/
+type=rpm-md
+priority=50
+keeppackages=0' > /etc/zypp/repos.d/packman.repo
+
+echo '[VSCode]
+name=VSCode
+enabled=1
+autorefresh=1
+baseurl=https://packages.microsoft.com/yumrepos/vscode
+type=rpm-md
+priority=99
+keeppackages=0' > /etc/zypp/repos.d/vscode.repo
+
+echo '[X2go]
+name=X2Go
+enabled=1
+autorefresh=1
+baseurl=http://download.opensuse.org/repositories/X11:/RemoteDesktop:/x2go/openSUSE_Tumbleweed
+type=rpm-md
+priority=99
+keeppackages=0' > /etc/zypp/repos.d/X2Go.repo
+
+echo '[libdvdcss]
+name=libdvdcss
+enabled=1
+autorefresh=1
+baseurl=http://opensuse-guide.org/repo/openSUSE_Tumbleweed/
+path=/
+type=rpm-md
+priority=99
+keeppackages=0' > /etc/zypp/repos.d/libdvdcss.repo
+
+echo '[google-chrome]
+name=google-chrome
+enabled=1
+autorefresh=1
+baseurl=http://dl.google.com/linux/chrome/rpm/stable/x86_64
+gpgcheck=1
+gpgkey=http://dl.google.com/linux/linux_signing_key.pub
+type=rpm-md
+keeppackages=0' > /etc/zypp/repos.d/google-chrome.repo
+
+### Importando a chave do repositório do Visual Studio Code ###
+comando_1="/usr/bin/rpm --import https://packages.microsoft.com/keys/microsoft.asc"
+
+tentar "$comando_1" $tentivas_maximas
+
+### Atualizando lista de pacotes, aplicando atualizações,  ###
+### instalando o restante do sistema base, instalando      ###
+### componentes gráficos, a área de trabalho e ferramentas ###
+### extras                                                 ###
+
+echo -e "\nInstalando o restante do sistema base, componentes gráficos, a área de trabalho e ferramentas extras...\n"
+
+pacotes_base="kernel-default kernel-default-devel install-initrd-openSUSE NetworkManager-lang htop nload pipewire-lang pipewire-pulseaudio pipewire-alsa pipewire-aptx pipewire-module-x11-0_3 flatpak git ffmpeg-7 libvulkan1 unzip zip 7zip bzip2 unrar fish yt-dlp-fish-completion tealdeer-fish-completion tealdeer yt-dlp btop NetworkManager-bluetooth kernel-firmware-all yast2-control-center yast2-sudo yast2-trans-pt_BR yast2-sysconfig yast2-update yast2-services-manager yast2-security yast2-online-update yast2-online-update-configuration yast2-online-update-frontend yast2-installation xkeyboard-config-lang wget-lang glibc-lang glib-networking-lang glib2-lang chrony dejavu-fonts mkfontscale apparmor-utils-lang apparmor-parser-lang apparmor-abstractions terminus-bitmap-fonts firewalld-lang plymouth-theme-opensuse-beat yast2-ntp-client tree fastfetch libvirt avahi sensors cnf-rs-locale btop rpmrebuild gcc-c++ gdb gdbm-lang fuse-overlayfs bat bat-extras bat-fish-completion man-pages-pt_BR make-lang accountsservice-lang dialog-lang net-tools-lang psmisc-lang plocate findutils-lang exo-lang diffutils-lang cryptsetup-lang cpio-lang coreutils-lang bison-lang udisks2-lang ntfsprogs-extra libfsntfs-tools wireless-regdb syslog-ng android-tools android-udev-rules earlyoom net-tools-deprecated v4l2loopback-utils v4l2loopback-kmp-default v4l2loopback-autoload whois nmap tcpdump netavark ncdu kexec-tools python311-Glances rclone opi libguestfs libguestfs-rsync libguestfs0 libguestfs-rescue update-bootloader-rpm-macros patterns-base-bootloader fwupd fwupd-lang susepaste libfsntfs1 libfsntfs-tools nvtop duf libnvme-mi1 libnvme1 nvme-cli lsd python311-pipx ucode-intel ucode-amd $pacotes_intel_gpu $pacotes_amd_gpu system-group-wheel sudo-policy-wheel-auth-self system-user-mail sof-firmware pv libnsl1"
+
+tema_breeze="$(zypper search breeze | grep -o 'breeze[0-9]\+' | uniq)"
+
+componentes_graficos="xorg-x11-server-extra xorg-x11-driver-video xorg-x11-driver-input xinput xf86-input-joystick xorg-x11-fonts-core lightdm-lang lightdm-gtk-greeter-lang lightdm-gtk-greeter-settings-lang xscreensaver-data-extra gstreamer-plugins-ugly-codecs gstreamer-plugins-bad-codecs libavcodec56 libavcodec57 metatheme-adapta-common gtk3-metatheme-adapta gtk4-metatheme-adapta blueman-lang bluez NetworkManager-applet NetworkManager-connection-editor NetworkManager-connection-editor-lang polkit-gnome-lang libgnomesu0 xdg-desktop-portal-gtk-lang xdg-desktop-portal-lang xdg-terminal-exec yast2-theme-breeze opensuse-welcome-lang gvfs-lang tumbler tumbler-lang tumbler-webp-thumbnailer sox libva-utils xclip xclipboard libgnomesu-lang fontconfig-lang gtk3-lang gsettings-desktop-schemas-lang gstreamer-lang gstreamer-plugins-bad-lang gstreamer-plugins-base-lang gstreamer-plugins-ugly-lang upower-lang zenity-lang gdk-pixbuf-lang colord-lang firewall-config xkill mugshot yast2-usbauth yast2-update-FACTORY yast2-testsuite yast2-multipath yast2-devtools autoyast2 yast2-installation-control yast2-configuration-management yast2-support patterns-yast-yast2_desktop yast2-tune yast2-kdump yast2-journal libdvdcss2 qsynth-lang gstreamer-plugins-bad-fluidsynth fluidsynth libvulkan_intel libvulkan_radeon simplescreenrecorder google-noto-sans-cjk-fonts simple-scan-lang libgtkglext-x11-1_0-0 xdotool PackageKit-lang gnome-packagekit-lang gnome-packagekit-extras package-update-indicator-lang firewall-applet firewall-config xhost susepaste-screenshot libqt5-qtimageformats distribution-logos-openSUSE-icons distribution-logos-openSUSE wallpapers-openSUSE-extra qpwgraph gdk-pixbuf-loader-libavif webp-pixbuf-loader gdk-pixbuf-loader-libavif raw-thumbnailer jxl-thumbnailer rsvg-thumbnailer gdk-pixbuf-loader-rsvg $tema_breeze"
+
+ambiente_XFCE="xfce4-panel-lang xfce4-panel-profiles xfce4-panel-restore-defaults xfce4-power-manager-lang xfce4-pulseaudio-plugin-lang pavucontrol-lang xfce4-screensaver xfce4-screenshooter-lang xfce4-session-lang xfce4-settings-lang xfce4-terminal-lang xfce4-datetime-plugin-lang xfce4-genmon-plugin-lang xfce4-kbdleds-plugin-lang xfce4-notifyd-lang xfce4-panel-lang xfce4-pulseaudio-plugin-lang xfce4-systemload-plugin-lang xfce4-notifyd-theme-adapta xfwm4-lang xfwm4-theme-adapta thunar-lang thunar-sendto-blueman thunar-plugin-media-tags-lang thunar-plugin-shares-lang thunar-volman-branding-openSUSE thunar-volman-lang thunar-plugin-archive-lang thunar-font-manager xfdesktop-lang xfce4-settings-color xfce4-sensors-plugin-lang xfce4-battery-plugin-lang xfce4-appfinder-lang xfce4-xkb-plugin-lang xfce4-weather-plugin-lang xfce4-docklike-plugin xfce4-whiskermenu-plugin-lang xfce4-panel-plugin-indicator-lang xfce4-power-manager-plugin xfce4-power-manager-branding-openSUSE ristretto-lang nomacs-lang"
+
+ferramentas_extras="myspell-dictionaries myspell-en myspell-en_US myspell-lightproof-en myspell-lightproof-pt_BR myspell-pt_BR okular-lang libKF6Archive6-lang vlc-qt vlc vlc-lang vlc-codec-gstreamer vlc-vdpau vlc-codecs gnome-calculator-lang kcolorchooser-lang gnome-disk-utility-lang libvirt-daemon-qemu qemu-linux-user qemu-linux-user libvirt-daemon-qemu virt-manager qt5ct kolourpaint-lang libqt5-qtxmlpatterns-imports libQt5WebChannel5-imports gparted-lang pluma-lang engrampa-lang libreoffice libreoffice-branding-openSUSE libreoffice-l10n-pt_BR libreoffice-l10n-en libreoffice-branding-openSUSE libreoffice-calc libreoffice-draw libreoffice-filters-optional libreoffice-gnome libreoffice-gtk3 libreoffice-icon-themes libreoffice-impress libreoffice-l10n-en libreoffice-l10n-pt_BR libreoffice-mailmerge libreoffice-math libreoffice-pyuno libreoffice-share-linker libreoffice-writer MozillaFirefox MozillaFirefox-branding-openSUSE MozillaFirefox-translations-common MozillaFirefox-translations-other transmission-gtk-lang baobab-lang code gearlever-lang"
+
+ambiente_de_trabalho="$ambiente_XFCE"
+pacotes="$pacotes_base $componentes_graficos $ambiente_de_trabalho $ferramentas_extras"
+
+valida_pacotes_visualizado "Validando os pacotes a serem instalados. Por favor, aguarde..." "$pacotes" "$log_zypper" "" "pacotes_validados"
+
+comando_1="zypper -n --gpg-auto-import-keys refresh -f"
+comando_2="zypper -n dist-upgrade -y --download-in-advance --allow-vendor-change --no-recommends"
+comando_3="zypper -n --ignore-unknown install -y --allow-vendor-change --download-in-advance $pacotes_validados"
+comando_4="zypper -n --ignore-unknown install -y --allow-vendor-change --download-in-advance -t pattern apparmor fonts x11_yast x11"
+
+tentar "$comando_1 ; $comando_2 && $comando_3 && $comando_4" $tentivas_maximas
+
+### (Bug fix) Instalação de versão mais antiga do wpa_supplicant ###
+### que suporta autenticação com TLSv1.0, TLSv1.1 e TLSv1.2      ###
+pesquisa=$(curl -sL https://download.opensuse.org/distribution/leap/15.4/repo/oss/x86_64/ | grep -Eai "name.*wpa_supplicant-2.9" | grep -v "32bit")
+wpa_supplicant_2_9_rpm=$(echo "$pesquisa" | grep -oE '>[^<]+<' | sed 's/[^>]*>\([^<]*\)<.*/\1/')
+wpa_supplicant_2_9_url="https://download.opensuse.org/distribution/leap/15.4/repo/oss/x86_64/$wpa_supplicant_2_9_rpm"
+
+comando_1="zypper -n refresh -f"
+comando_2="zypper -n --ignore-unknown install --oldpackage -y --allow-vendor-change $wpa_supplicant_2_9_url"
+
+tentar "$comando_1 ; $comando_2" $tentivas_maximas
+zypper addlock wpa_supplicant
+/usr/bin/update-crypto-policies --set LEGACY
+
+### Instalação do grub (UEFI ou BIOS) ###
+comando_1="zypper -n refresh -f"
+
+if [ -d /sys/firmware/efi ]; then
+    echo -e "\nInstalando o GRUB em modo UEFI\n"
+    comando_2="zypper -n --ignore-unknown install -y --download-in-advance efitools efivar grub2-x86_64-efi-extras"
+    tentar "$comando_1 ; $comando_2" $tentivas_maximas
+
+    /usr/sbin/grub2-install
+    opensuse_secureboot=(/usr/sbin/shim-install --config-file=/boot/grub2/grub.cfg)
+else
+    echo -e "\nInstalando o GRUB em modo BIOS\n"
+    comando_2="zypper -n --ignore-unknown install -y --download-in-advance grub2-i386-pc-extras"
+    tentar "$comando_1 ; $comando_2" $tentivas_maximas
+    /usr/sbin/grub2-install $dispositivo_boot
+fi
+
+sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT=""/GRUB_CMDLINE_LINUX_DEFAULT="quiet splash security=apparmor loglevel=3 nosimplefb=1"/' /etc/default/grub
+sed -i 's/.*GRUB_TERMINAL.*/GRUB_TERMINAL=gfxterm/' /etc/default/grub
+sed -i 's/.*GRUB_GFXMODE.*/GRUB_GFXMODE=auto/' /etc/default/grub
+echo "GRUB_DISABLE_OS_PROBER=\"false\"" >> /etc/default/grub
+
+echo
+/usr/bin/dracut -f --regenerate-all
+echo
+/usr/sbin/grub2-mkconfig -o /boot/grub2/grub.cfg
+echo
+"${opensuse_secureboot[@]}"
+echo
+
+### Ajustando o tema de inialização do sistema ###
+/usr/sbin/plymouth-set-default-theme bgrt -R
+/usr/bin/dracut -f --regenerate-all
+
+### Adicionando trava para que o pacote não seja removido durante atualizações ###
+zypper addlock package-update-indicator package-update-indicator-lang
+
+### Instalando os drivers da NVIDIA ###
+if [[ $instalar_nvidia == "Sim" ]]; then
+    echo -e "\nInstalando os drivers da NVIDIA\n"
+    comando_1="zypper -n refresh -f"
+    comando_2="zypper -n --ignore-unknown install -y --download-in-advance --auto-agree-with-licenses nvidia-compute-G06 nvidia-compute-G06-32bit nvidia-compute-utils-G06 nvidia-driver-G06-kmp-default nvidia-drivers-G06 nvidia-gl-G06 nvidia-gl-G06-32bit nvidia-utils-G06 nvidia-video-G06 nvidia-video-G06-32bit"
+
+    tentar "$comando_1 ; $comando_2" $tentivas_maximas
+
+    KERNEL_ATUAL="$(/usr/bin/find /usr/src/ -maxdepth 1 -type d -name 'linux-*-*-obj' | sort -t- -k2,2Vr -k3,3nr | head -n 1)"
+    SYSSRC="$KERNEL_ATUAL/x86_64/default/"
+    NVIDIA_SRC="/usr/src/kernel-modules/$(/usr/bin/ls /usr/src/kernel-modules/)"
+
+    KERNEL_ATUAL=$KERNEL_ATUAL SYSSRC=$SYSSRC /bin/bash $NVIDIA_SRC/conftest.sh
+    KERNEL_ATUAL=$KERNEL_ATUAL SYSSRC=$SYSSRC /usr/bin/make -C $NVIDIA_SRC
+    KERNEL_ATUAL=$KERNEL_ATUAL SYSSRC=$SYSSRC /usr/bin/make modules_install -C $NVIDIA_SRC
+fi
+
+### Instalando o SUSE Prime e ajustando para não desligar o áudio do HDMI ###
+if [[ "$laptop" == [sS] ]]; then
+    ### Instalando componentes para melhor experiência com laptops ###
+    echo -e "\nInstalando componentes para melhor experiência com laptops\n"
+    if [ "$num_gpus" -gt 1 ]; then
+        switcheroo_control="switcheroo-control"
+    fi
+ 
+    comando_1="zypper -n refresh -f"
+    comando_2="zypper -n --ignore-unknown install -y --download-in-advance -t pattern laptop"
+    comando_3="zypper -n --ignore-unknown install -y --download-in-advance touchegg $switcheroo_control tlpui"
+
+    tentar "$comando_1 ; $comando_2 && $comando_3" $tentivas_maximas
+
+    if [[ $instalar_nvidia == "Sim" ]]; then
+        echo -e "\nInstalando o SUSE Prime e ajustando para não desligar o áudio do HDMI\n"
+        comando_1="zypper -n refresh -f"
+        comando_2="zypper -n --ignore-unknown install -y --download-in-advance suse-prime suseprime-appindicator"
+
+        tentar "$comando_1 ; $comando_2" $tentivas_maximas
+
+        echo '# Enable runtime PM for NVIDIA VGA/3D controller devices on driver bind
+        ACTION=="bind", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x030000", TEST=="power/control", ATTR{power/control}="auto"
+        ACTION=="bind", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x030200", TEST=="power/control", ATTR{power/control}="auto"
+
+        # Disable runtime PM for NVIDIA VGA/3D controller devices on driver unbind
+        ACTION=="unbind", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x030000", TEST=="power/control", ATTR{power/control}="on"
+        ACTION=="unbind", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x030200", TEST=="power/control", ATTR{power/control}="on"' > /etc/udev/rules.d/90-nvidia-udev-pm-G05.rules
+
+        # Habilitar controle de energia dinâmico
+        echo 'options nvidia NVreg_DynamicPowerManagement=0x02' > /etc/modprobe.d/09-nvidia-dpm.conf
+
+        # Habilitar o SUSE Prime e realizar as configurações necessárias
+        /usr/bin/ln -s /usr/lib/systemd/system/prime-select.service /etc/systemd/system/multi-user.target.wants/prime-select.service
+        echo "offload" > /etc/prime/boot
+        echo "offload" > /etc/prime/current_type
+        echo "$iGPU" > /etc/prime/offload_type
+        echo "$usuario" > /etc/prime/user
+    fi
+
+    # Habilitando o TLP para preservação da bateria
+    /usr/bin/ln -s /usr/lib/systemd/system/tlp.service /etc/systemd/system/multi-user.target.wants/tlp.service
+    /usr/bin/ln -s /usr/lib/systemd/system/touchegg.service /etc/systemd/system/multi-user.target.wants/touchegg.service
+
+    # Ajustando configurações do TLP
+    sed -i '/^/s/^#CPU_SCALING_GOVERNOR_ON_BAT/CPU_SCALING_GOVERNOR_ON_BAT/g' /etc/tlp.conf
+    sed -i '/^/s/^#CPU_SCALING_GOVERNOR_ON_AC/CPU_SCALING_GOVERNOR_ON_AC/g' /etc/tlp.conf
+    sed -i '/^/s/^#RUNTIME_PM_ON_AC=on/RUNTIME_PM_ON_AC=auto/g' /etc/tlp.conf
+    sed -i '/^/s/^#PCIE_ASPM_ON_BAT=default/PCIE_ASPM_ON_BAT=powersupersave/g' /etc/tlp.conf
+
+    # Habilitar o serviço do switcheroo-control
+    if [ ! -z "$switcheroo_control" ]; then
+        /usr/bin/ln -s /usr/lib/systemd/system/switcheroo-control.service /etc/systemd/system/graphical.target.wants/switcheroo-control.service
+    fi
+fi
+
+### Criando diretório images ###
+mkdir -p /usr/share/images
+
+### Habilitando serviço de rede ###
+echo -e "\nHabilitando serviço de rede\n"
+/usr/bin/ln -s /usr/lib/systemd/system/NetworkManager.service /etc/systemd/system/network.service
+/usr/bin/ln -s /usr/lib/systemd/system/NetworkManager.service /etc/systemd/system/multi-user.target.wants/NetworkManager.service
+/usr/bin/ln -s /usr/lib/systemd/system/NetworkManager-dispatcher.service /etc/systemd/system/dbus-org.freedesktop.nm-dispatcher.service
+/usr/bin/ln -s /usr/lib/systemd/system/NetworkManager-wait-online.service /etc/systemd/system/network-online.target.wants/NetworkManager-wait-online.service
+
+### Habilitando Firewalld ###
+echo -e "\nHabilitando Firewalld\n"
+/usr/bin/ln -s /usr/lib/systemd/system/firewalld.service /etc/systemd/system/dbus-org.fedoraproject.FirewallD1.service
+/usr/bin/ln -s /usr/lib/systemd/system/firewalld.service /etc/systemd/system/multi-user.target.wants/firewalld.service
+
+### Habilitando Chronyd ###
+echo -e "\nHabilitando Chronyd\n"
+/usr/bin/ln -s /usr/lib/systemd/system/chronyd.service /etc/systemd/system/multi-user.target.wants/chronyd.service
+
+### Habilitando General Purpose Mouse ###
+echo -e "\nHabilitando General Purpose Mouse\n"
+/usr/bin/ln -s /usr/lib/systemd/system/gpm.service /etc/systemd/system/multi-user.target.wants/gpm.service
+
+### Habilitando Libvirtd ###
+echo -e "\nHabilitando Libvirtd\n"
+/usr/bin/ln -s /usr/lib/systemd/system/libvirtd.service /etc/systemd/system/multi-user.target.wants/libvirtd.service
+/usr/bin/ln -s /usr/lib/systemd/system/virtlockd.socket /etc/systemd/system/sockets.target.wants/virtlockd.socket
+/usr/bin/ln -s /usr/lib/systemd/system/virtlogd.socket /etc/systemd/system/sockets.target.wants/virtlogd.socket
+/usr/bin/ln -s /usr/lib/systemd/system/libvirtd.socket /etc/systemd/system/sockets.target.wants/libvirtd.socket
+/usr/bin/ln -s /usr/lib/systemd/system/libvirtd-ro.socket /etc/systemd/system/sockets.target.wants/libvirtd-ro.socket
+
+### Habilitando Earlyoom ###
+echo -e "\nHabilitando Earlyoom\n"
+/usr/bin/ln -s /usr/lib/systemd/system/earlyoom.service /etc/systemd/system/multi-user.target.wants/earlyoom.service
+
+### Desabilitando a política de nomes de interface de rede ###
+echo -e "\nDesabilitando a política de nomes de interface de rede\n"
+/usr/bin/ln -s /dev/null /etc/systemd/network/99-default.link
+
+### Garantindo o início do nm-applet quando o shell padrão não for o bash ###
+cp /usr/share/applications/nm-applet.desktop /etc/xdg/autostart/nm-applet.desktop
+
+### Desabilitando o início automático do applet do FirewallD ###
+echo '[Desktop Entry]
+Hidden=true' > /etc/xdg/autostart/firewall-applet.desktop
+
+### Desligando o beep do XFCE ###
+echo '[Desktop Entry]
+Type=Application
+Encoding=UTF-8
+Name=Bell off
+Comment=Desliga o beep do XFCE
+Exec=/usr/bin/xset b off
+Icon=
+Terminal=False' > /etc/xdg/autostart/bell-off.desktop
+
+### Permitindo conexões ao servidor X ###
+echo '[Desktop Entry]
+Type=Application
+Encoding=UTF-8
+Name=Distrobox Xhost Allower
+Comment=Allows apps running in Distrobox containers to use the local X server.
+Exec=bash -c "/usr/bin/xhost +si:localuser:$USER"
+Terminal=False' > /etc/xdg/autostart/distrobox-xhost-allower.desktop
+
+### Ajustando o PolicyKit para respeitar o grupo wheel ###
+echo "polkit.addAdminRule(function(action, subject) {
+    return [\"unix-user:0\", \"unix-group:wheel\"];
+});" > /etc/polkit-1/rules.d/00-wheel.rules
+
+chmod +r /etc/polkit-1/rules.d/00-wheel.rules
+
+### Ajustando idioma e fuso ###
+echo "LANG=pt_BR.utf8" > /etc/environment
+echo "QT_QPA_PLATFORMTHEME=qt5ct" >> /etc/environment
+sed 's/INSTALLED_LANGUAGES=""/INSTALLED_LANGUAGES="pt_BR"/' -i /etc/sysconfig/language
+sed 's/ROOT_USES_LANG="ctype"/ROOT_USES_LANG="yes"/' -i /etc/sysconfig/language
+echo "LANG=pt_BR.UTF-8" > /etc/locale.conf
+echo "LC_ALL=pt_BR.UTF-8" >> /etc/locale.conf
+rm /etc/localtime
+ln -s /usr/share/zoneinfo/America/Sao_Paulo /etc/localtime
+
+echo "Section \"InputClass\"
+        Identifier \"system-keyboard\"
+        MatchIsKeyboard \"on\"
+        Option \"XkbLayout\" \"br\"
+        Option \"XkbModel\" \"pc105+inet\"
+        Option \"XkbOptions\" \"terminate:ctrl_alt_bksp\"
+EndSection" > /etc/X11/xorg.conf.d/00-keyboard.conf
+
+echo "KEYMAP=br-abnt2
+FONT=ter-v22b
+FONT_MAP=
+FONT_UNIMAP=" > /etc/vconsole.conf
+
+### Ajustando o tema do gerenciador de login ###
+echo "[greeter]
+background = /usr/share/wallpapers/openSUSEdefault/contents/images/5120x3200.png
+user-background = false
+theme-name = Adapta-LightGreen-Nokto
+indicators = ~host;~spacer;~clock;~spacer;~language;~layout;~session;~a11y;~power;
+font-name = Open Sans 16
+icon-theme-name = breeze-dark
+clock-format = %a, %T
+screensaver-timeout = 2
+xft-antialias = true" > /etc/lightdm/lightdm-gtk-greeter.conf
+
+### Habilitando cores para algumas aplicações de linha de comando ###
+echo 'CLICOLOR=1' >> /etc/environment
+
+### Ajustando permissão para o LightDM funcionar ###
+/usr/bin/chown -R lightdm: /var/lib/lightdm
+
+### Adicionando repositório do Flathub ###
+/usr/bin/flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+### Limpando pacotes já baixados ###
+zypper -n clean
+
+### Removendo pacotes desnecessários ###
+zypper -n remove -y --clean-deps java-11-openjdk java-11-openjdk-headless javapackages-filesystem javapackages-tools busybox-ed hddtemp openssh-askpass xf86-input-keyboard postfix konsole konsole-part
+
+### Removendo o repositório do openSUSE Leap ###
+echo -e "\nRemovendo o repositório do openSUSE Leap\n"
+zypper removerepo "Open Source Software Leap"
+
+### Atualizando os pacotes órfãos e garantindo ###
+### que as bibliotecas gráficas vêm do Packman ###
+echo -e "\nAtualizando pacotes obsoletos\n"
+pacotes_orfaos="$(zypper -n search -s --installed-only -t package | grep -E "\(.*\)" | awk '{print $3}' | grep -v "wpa_supplicant" | tr '\n' ' ')"
+
+valida_pacotes_visualizado "Validando os pacotes a serem instalados. Por favor, aguarde..." "$pacotes_orfaos" "$log_zypper" "" "pacotes_orfaos_validados"
+
+comando_1="zypper -n refresh -f"
+comando_2="zypper -n --ignore-unknown install -y --download-in-advance --force --repo \"Open Source Software\" $pacotes_orfaos_validados"
+comando_3="zypper -n dist-upgrade -y --download-in-advance --from \"Packman Repository\" --allow-vendor-change"
+comando_4="zypper -n dist-upgrade -y --download-in-advance"
+
+tentar "$comando_1 ; $comando_2 && $comando_3 && $comando_4" $tentivas_maximas
+
+### Ajustando para que o zypper não mude o fornecedor de pacotes por padrão ###
+echo -e "\nAjustando para que o zypper não mude o fornecedor de pacotes por padrão\n"
+sed -i 's/solver.dupAllowVendorChange = true/solver.dupAllowVendorChange = false/' /etc/zypp/zypp.conf
+
+### Ajustando o tempo de atualização automática dos repositórios para 7 dias ###
+echo -e "\nAjustando o tempo de atualização automática dos repositórios para 7 dias\n"
+sed -i '/# repo.refresh.delay = 10/a repo.refresh.delay = 10080' /etc/zypp/zypp.conf
+
+### Instalando o tema Adapta ###
+echo -e "\nInstalando o tema Adpata\n"
+comando_1="wget -q --show-progress https://github.com/jpmsb/preparando-computador-para-engenharia-de-tele/raw/main/compactados/tema-adapta.tar.xz -O /tmp/adapta.tar.xz"
+
+tentar "$comando_1" $tentivas_maximas
+
+rm -rf /usr/share/themes/Adapta*
+tar -xf /tmp/adapta.tar.xz -C /usr/share/themes
+
+### Instalando o tema Chameleon Breeze Dark ###
+echo -e "\nInstalando o tema Chameleon Breeze Dark\n"
+comando_1="wget -q --show-progress https://github.com/jpmsb/preparando-computador-para-engenharia-de-tele/raw/main/compactados/Chameleon-Breeze-Dark.tar.xz -O /tmp/Chameleon-Breeze-Dark.tar.xz"
+
+tentar "$comando_1" $tentivas_maximas
+
+rm -rf /usr/share/themes/Chameleon-Breeze-Dark*
+tar -xf /tmp/Chameleon-Breeze-Dark.tar.xz -C /usr/share/themes
+
+### Instalando o tema Chameleon Breeze Darker ###
+echo -e "\nInstalando o tema Chameleon Breeze Darker\n"
+comando_1="wget -q --show-progress https://github.com/jpmsb/preparando-computador-para-engenharia-de-tele/raw/main/compactados/Chameleon-Breeze-Darker.tar.xz -O /tmp/Chameleon-Breeze-Darker.tar.xz"
+
+tentar "$comando_1" $tentivas_maximas
+
+rm -rf /usr/share/themes/Chameleon-Breeze-Darker*
+tar -xf /tmp/Chameleon-Breeze-Darker.tar.xz -C /usr/share/themes
+
+### Criando tema de cores para o Qt5ct ###
+echo '[ColorScheme]
+active_colors=#ffffffff, #ff31363b, #ff979797, #ff5e5c5b, #ff9f9f9f, #ff4a4947, #ffffffff, #ffffffff, #ffffffff, #ff1b1e20, #ff2a2e32, #ffe7e4e0, #ff00a489, #fff9f9f9, #ff0986d3, #ffa70b06, #ff5c5b5a, #ffffffff, #ff3f3f36, #ffffffff, #80ffffff
+disabled_colors=#ff808080, #ff31363b, #ff979797, #ff5e5c5b, #ff9f9f9f, #ff4a4947, #ff808080, #ffffffff, #ff808080, #ff1b1e20, #ff2a2e32, #ffe7e4e0, #ff13181e, #ff808080, #ff0986d3, #ffa70b06, #ff5c5b5a, #ffffffff, #ff3f3f36, #ffffffff, #80ffffff
+inactive_colors=#ffffffff, #ff31363b, #ff979797, #ff5e5c5b, #ff9f9f9f, #ff4a4947, #ffffffff, #ffffffff, #ffffffff, #ff1b1e20, #ff2a2e32, #ffe7e4e0, #ff00a489, #fff9f9f9, #ff0986d3, #ffa70b06, #ff5c5b5a, #ffffffff, #ff3f3f36, #ffffffff, #80ffffff' > /usr/share/qt5ct/colors/chameleon-dark.conf
+
+echo '[ColorScheme]
+active_colors=#ffffffff, #ff14191f, #ff979797, #ff5e5c5b, #ff9f9f9f, #ff4a4947, #ffffffff, #ffffffff, #ffffffff, #ff14191f, #ff14191f, #ffe7e4e0, #ff00a489, #fff9f9f9, #ff0986d3, #ffa70b06, #ff5c5b5a, #ffffffff, #ff3f3f36, #ffffffff, #80ffffff
+disabled_colors=#ff808080, #ff14191f, #ff979797, #ff5e5c5b, #ff9f9f9f, #ff4a4947, #ff808080, #ffffffff, #ff808080, #ff14191f, #ff14191f, #ffe7e4e0, #ff13181e, #ff808080, #ff0986d3, #ffa70b06, #ff5c5b5a, #ffffffff, #ff3f3f36, #ffffffff, #80ffffff
+inactive_colors=#ffffffff, #ff14191f, #ff979797, #ff5e5c5b, #ff9f9f9f, #ff4a4947, #ffffffff, #ffffffff, #ffffffff, #ff14191f, #ff14191f, #ffe7e4e0, #ff00a489, #fff9f9f9, #ff0986d3, #ffa70b06, #ff5c5b5a, #ffffffff, #ff3f3f36, #ffffffff, #80ffffff' > /usr/share/qt5ct/colors/chameleon-darker.conf
+
+### Criando esquema de cor Chameleon Breeze Dark ###
+criar_esquema_chameleon_breeze_dark > /usr/share/color-schemes/Chameleon-Breeze-Dark.colors
+
+### Criando esquema de cor Chameleon Breeze Darker ###
+criar_esquema_chameleon_breeze_darker > /usr/share/color-schemes/Chameleon-Breeze-Darker.colors
+
+### Criando o arquivo kdeglobals ###
+criar_arquivo_kdeglobals > /etc/xdg/kdeglobals
+
+### Habilitando a tela de boas vindas ###
+cp /usr/share/applications/org.opensuse.opensuse_welcome.desktop /etc/xdg/autostart/org.opensuse.opensuse_welcome.desktop
+
+### Instalando a fonte Noto Mono Nerd Font ###
+echo -e "\nInstalando a fonte Noto Mono Nerd Font\n"
+comando_1="wget -q --show-progress https://github.com/ryanoasis/nerd-fonts/raw/master/patched-fonts/Noto/Mono/NotoMonoNerdFontMono-Regular.ttf -O /usr/share/fonts/NotoMonoNerdFontMono-Regular.ttf"
+
+tentar "$comando_1" $tentivas_maximas
+
+/usr/bin/fc-cache -r
+
+### Instalando um skel ###
+echo -e "\nInstalando um skel\n"
+comando_1="wget -q --show-progress https://github.com/jpmsb/preparando-computador-para-engenharia-de-tele/raw/main/compactados/skel.tar.xz -O /tmp/skel.tar.xz"
+
+tentar "$comando_1" $tentivas_maximas
+
+rm -rf /etc/skel
+tar -xf /tmp/skel.tar.xz -C /etc/skel
+
+### Correção do tema de cores do nomacs - Image Lounge ###
+mkdir -p /etc/skel/.config/nomacs
+echo '[DisplaySettings]
+bgColorNoMacsRGBA=4281545523
+bgColorWidgetRGBA=2852126720
+fontColorRGBA=4292730333
+highlightColorRGBA=4278233855
+iconColorRGBA=4292730333
+themeName312=Dark-Theme.css
+tpPattern=true' > "/etc/skel/.config/nomacs/Image Lounge.conf"
+
+### Tema de cores Breeze Dark para o Okular ###
+echo '[UiSettings]
+ColorScheme=Chameleon Breeze Darker' > /etc/skel/.config/okularrc
+
+### Definindo configurações para o xfce4-terminal ###
+echo '<?xml version="1.0" encoding="UTF-8"?>
+
+<channel name="xfce4-terminal" version="1.0">
+  <property name="color-palette" type="string" value="rgb(0,0,0);rgb(170,0,0);rgb(0,170,0);rgb(246,211,45);rgb(62,125,205);rgb(170,0,170);rgb(0,170,170);rgb(170,170,170);rgb(85,85,85);rgb(255,85,85);rgb(85,255,85);rgb(255,255,85);rgb(85,85,255);rgb(255,85,255);rgb(85,255,255);rgb(255,255,255)"/>
+  <property name="font-name" type="string" value="NotoMono Nerd Font Mono 12"/>
+  <property name="scrolling-unlimited" type="bool" value="true"/>
+  <property name="run-custom-command" type="bool" value="true"/>
+  <property name="custom-command" type="string" value="/usr/bin/fish"/>
+</channel>' > /etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfce4-terminal.xml
+
+### Instalando o pacote de ícones Tela (modo standard) ###
+echo -e "\nInstalando o tema de ícones Tela\n"
+ultima_tag_tela=$(basename $(curl -Ls -o /dev/null -w %{url_effective} https://github.com/vinceliuice/Tela-icon-theme/releases/latest))
+comando_1="wget -q --show-progress https://github.com/vinceliuice/Tela-icon-theme/archive/refs/tags/$ultima_tag_tela.tar.gz -O /tmp/Tela-icon-theme.tar.gz"
+
+tentar "$comando_1" $tentivas_maximas
+
+tar -xf /tmp/Tela-icon-theme.tar.gz -C /tmp
+bash /tmp/Tela-icon-theme-$ultima_tag_tela/install.sh -d /usr/share/icons > /dev/null
+
+ajustar_tema_icones_tela /usr/share/icons
+
+### Ajustando o Package Update Indicator para ###
+### utilizar um script customizado            ###
+mkdir -p /etc/skel/.config/package-update-indicator/
+echo "[General]
+refresh-interval=43200
+update-command='/usr/local/bin/atualizar-sistema'" > /etc/skel/.config/package-update-indicator/package-update-indicator.conf
+
+### Script para atualizar o sistema ###
+echo -e "\nInstalando o script para atualizar o sistema\n"
+comando_1="wget -q --show-progress https://raw.githubusercontent.com/jpmsb/preparando-computador-para-engenharia-de-tele/main/scripts-auxiliares/atualizar-sistema -O /usr/local/bin/atualizar-sistema"
+
+tentar "$comando_1" $tentivas_maximas
+
+chmod +x /usr/local/bin/atualizar-sistema
+
+### Adicionando caminhos extras de binários no FISH ###
+echo 'for i in /bin /sbin /usr/local/sbin /usr/local/bin
+    if not contains $i $PATH
+        set PATH $PATH $i
+    end 
+end
+
+if not contains $HOME/.local/bin $PATH
+    set PATH $HOME/.local/bin $PATH
+end' > /etc/fish/conf.d/extra_paths.fish
+
+### Adicionando caminhos extras de binários no BASH ###
+echo 'new_paths=("/bin" "/sbin" "/usr/local/sbin" "/usr/local/bin")
+
+for new_path in "${new_paths[@]}"
+do  
+    if [[ ":$PATH:" != *":$new_path:"* ]]; then
+        export PATH="$PATH:$new_path"
+    fi
+done
+
+if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+    export PATH="$HOME/.local/bin:$PATH"
+fi' > /etc/profile.d/extra_paths.sh
+
+### Definindo o interpretador de comandos FISH na variável SHELL ###
+echo 'export SHELL=/usr/bin/fish' > /etc/profile.d/default_shell.sh
+echo 'SHELL=/usr/bin/fish' >> /etc/environment
+
+### Ajustando o tema dos aplicativos do Gnome ###
+echo "[org.gnome.desktop.interface]
+color-scheme='prefer-dark'" > /usr/share/glib-2.0/schemas/10_org.gnome.desktop.interface.gschema.override
+/usr/bin/glib-compile-schemas /usr/share/glib-2.0/schemas
+
+### Loja Gnome Software deve preferir o repositório local ao invés de Flatpak ###
+echo "[org.gnome.software]
+packaging-format-preference = [ 'package', 'flatpak' ]" > /usr/share/glib-2.0/schemas/20_org.gnome.software-jpmsb.gschema.override
+/usr/bin/glib-compile-schemas /usr/share/glib-2.0/schemas
+
+### Ajustando as permissões dos diretórios do PolicyKit ###
+/usr/bin/chown -R root:root /usr/share/polkit-1/
+/usr/bin/chown polkitd:root /usr/share/polkit-1/rules.d
+/usr/bin/chown polkitd:root /usr/share/polkit-1/rules.d/50-default.rules
+/usr/bin/chown polkitd:root /etc/polkit-1/rules.d
+
+### Ajustando a zona padrão do Firewalld para 'trusted' ###
+/usr/bin/firewall-offline-cmd --set-default-zone=trusted
+
+echo -e "${verde}\n\nTudo pronto!! Digite \"sudo reboot\" para reiniciar o seu computador.${normal}"
