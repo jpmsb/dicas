@@ -1,5 +1,15 @@
 # Scripts
 
+## atualiza-firefox
+
+Baixa e instala a versão mais recente do navegador Mozilla Firefox, permitindo que o mesmo seja lançado pelo menu de aplicativos ou pelo comando `firefox`.
+
+Para utilizar a rotina, execute o comando abaixo:
+
+```bash
+curl -sL 'https://github.com/jpmsb/dicas/raw/master/scripts/atualiza-firefox' | sudo bash
+```
+
 ## instalar-icones-tela
 
 Instala o tema de ícones Tela.
