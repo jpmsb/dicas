@@ -1,5 +1,11 @@
 # Scripts
 
+### Tabela de conteúdos
+
+- [atualiza-firefox](#atualiza-firefox)
+- [instalar-icones-tela](#instalar-icones-tela)
+- [instalar-tema-chameleon-breeze](#instalar-tema-chameleon-breeze)
+
 ## atualiza-firefox
 
 Baixa e instala a versão mais recente do navegador Mozilla Firefox, permitindo que o mesmo seja lançado pelo menu de aplicativos ou pelo comando `firefox`.
