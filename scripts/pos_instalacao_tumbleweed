@@ -1106,17 +1106,7 @@ comando_4="zypper -n --ignore-unknown install -y --allow-vendor-change --downloa
 
 tentar "$comando_1 ; $comando_2 && $comando_3 && $comando_4" $tentivas_maximas
 
-### (Bug fix) Instalação de versão mais antiga do wpa_supplicant ###
-### que suporta autenticação com TLSv1.0, TLSv1.1 e TLSv1.2      ###
-pesquisa=$(curl -sL https://download.opensuse.org/distribution/leap/15.4/repo/oss/x86_64/ | grep -Eai "name.*wpa_supplicant-2.9" | grep -v "32bit")
-wpa_supplicant_2_9_rpm=$(echo "$pesquisa" | grep -oE '>[^<]+<' | sed 's/[^>]*>\([^<]*\)<.*/\1/')
-wpa_supplicant_2_9_url="https://download.opensuse.org/distribution/leap/15.4/repo/oss/x86_64/$wpa_supplicant_2_9_rpm"
-
-comando_1="zypper -n refresh -f"
-comando_2="zypper -n --ignore-unknown install --oldpackage -y --allow-vendor-change $wpa_supplicant_2_9_url"
-
-tentar "$comando_1 ; $comando_2" $tentivas_maximas
-zypper addlock wpa_supplicant
+### Ajuste para que criptograficas mais antigas sejam suportadas
 /usr/bin/update-crypto-policies --set LEGACY
 
 ### Instalação do grub (UEFI ou BIOS) ###
@@ -1442,6 +1432,7 @@ comando_1="wget -q --show-progress https://github.com/jpmsb/preparando-computado
 tentar "$comando_1" $tentivas_maximas
 
 rm -rf /etc/skel
+mkdir -p /etc/skel
 tar -xf /tmp/skel.tar.xz -C /etc/skel
 
 ### Correção do tema de cores do nomacs - Image Lounge ###
