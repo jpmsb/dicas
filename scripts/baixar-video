@@ -15,8 +15,10 @@ qualidade_1=0
 while read -r dado_audio
 do
     qualidade_2=$(echo "$dado_audio" | grep "audio only" | grep -oE '[0-9]{0,9}k' | head -n 1)
-    if [ "${qualidade_2/k/}" -gt "$qualidade_1" ]; then
-        qualidade_1=${qualidade_2/k/}
+    qualidade_2=${qualidade_2//[^0-9]/}
+
+    if [[ -n "${qualidade_2}" && "${qualidade_2}" -gt "$qualidade_1" ]]; then
+        qualidade_1=${qualidade_2}
         melhor_audio=$dado_audio
         id_audio=$(echo "$dado_audio" | awk '{print $1}')
     fi
@@ -32,8 +34,10 @@ qualidade_1=0
 while read -r dado_video
 do
     qualidade_2=$(echo "$dado_video" | grep -v "audio only" | grep -oE '[0-9]{0,9}k' | head -n 1)
-    if [ "${qualidade_2/k/}" -gt "$qualidade_1" ]; then
-        qualidade_1=${qualidade_2/k/}
+    qualidade_2=${qualidade_2//[^0-9]/}
+
+    if [[ -n "${qualidade_2}" && "${qualidade_2}" -gt "$qualidade_1" ]]; then
+        qualidade_1=${qualidade_2}
         melhor_video=$dado_video
         id_video=$(echo "$dado_video" | awk '{print $1}')
     fi  
