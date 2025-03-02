@@ -21,13 +21,43 @@ curl -sL 'https://github.com/jpmsb/dicas/raw/master/scripts/atualiza-firefox' | 
 
 Baixa um vídeo do YouTube, selecionando a melhor taxa de bits para áudio e vídeo.
 
+### Requisitos
+
+É preciso ter o `yt-dlp` instalado. Para tal, execute o comando abaixo:
+
+- openSUSE Tumbleweed:
+
+    ```bash
+    sudo zypper install yt-dlp
+    ```
+
+- Debian/Ubuntu:
+
+    ```bash
+    sudo apt install yt-dlp
+    ```
+
+- Fedora:
+
+    ```bash
+    sudo dnf install yt-dlp
+    ```
+
+- Arch Linux/Manjaro:
+
+    ```bash
+    sudo pacman -S yt-dlp
+    ```
+
+### Uso
+
 Para baixar um vídeo, execute o comando abaixo:
 
 ```bash
 baixa-video 'URL'
 ```
 
-Substitua `'URL'` pelo endereço do vídeo no YouTube.
+Substitua `'URL'` pelo endereço do vídeo no YouTube ou outro site de vídeos.
 
 ## instalar-icones-tela
 
