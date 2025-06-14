@@ -49,6 +49,12 @@ Baixa um vídeo do YouTube, selecionando a melhor taxa de bits para áudio e ví
     sudo pacman -S yt-dlp
     ```
 
+- Pipx
+
+    ```bash
+    pipx install yt-dlp
+    ```
+
 ### Uso
 
 Para baixar um vídeo, execute o comando abaixo:
