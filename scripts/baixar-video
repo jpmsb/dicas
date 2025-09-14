@@ -1,7 +1,7 @@
 #!/bin/bash
 
 url_video="$1"
-aplicativo='yt-dlp'
+aplicativo='/usr/bin/yt-dlp'
 
 nome_do_video=$($aplicativo --get-filename $url_video | cut -d "." -f1)
 
