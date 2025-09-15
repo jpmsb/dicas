@@ -60,7 +60,7 @@ Baixa um vídeo do YouTube, selecionando a melhor taxa de bits para áudio e ví
 Para baixar um vídeo, execute o comando abaixo:
 
 ```bash
-baixa-video 'URL'
+baixar-video 'URL'
 ```
 
 Substitua `'URL'` pelo endereço do vídeo no YouTube ou outro site de vídeos.
