@@ -63,7 +63,7 @@ Para baixar um vídeo, execute o comando abaixo:
 baixar-video 'URL'
 ```
 
-Substitua `'URL'` pelo endereço do vídeo no YouTube ou outro site de vídeos.
+Substitua `'URL'` pelo endereço do vídeo no YouTube ou outro site de vídeos. A rotina irá selecionar a maior resolução e taxa de bits disponíveis para áudio e vídeo, e combinará ambos em um único arquivo.
 
 ## instalar-icones-tela
 
