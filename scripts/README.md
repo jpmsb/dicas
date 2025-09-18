@@ -55,6 +55,20 @@ Baixa um vídeo do YouTube, selecionando a melhor taxa de bits para áudio e ví
     pipx install yt-dlp
     ```
 
+### Obtendo o script
+
+Para baixar o script, execute o comando abaixo:
+
+```bash
+wget -O ~/baixar-video 'https://raw.githubusercontent.com/jpmsb/dicas/refs/heads/master/scripts/baixar-video'
+```
+
+Depois, dê permissão de execução ao arquivo:
+
+```bash
+chmod +x ~/baixar-video
+```
+
 ### Uso
 
 Para baixar um vídeo, execute o comando abaixo:
