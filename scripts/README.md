@@ -19,7 +19,7 @@ curl -sL 'https://github.com/jpmsb/dicas/raw/master/scripts/atualiza-firefox' | 
 
 ## baixar-video
 
-Baixa um vídeo do YouTube, selecionando a melhor taxa de bits para áudio e vídeo.
+Baixa um vídeo de sites, como o YouTube, selecionando a melhor resolução e  taxa de bits para áudio e vídeo.
 
 ### Requisitos
 
