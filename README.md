@@ -1,6 +1,6 @@
 # Dicas
 
-Repositório com rotinas e documentações que podem ser úteis em diversas ocasiões. Geralmente são soluções simples e pontuais.
+Repositório com rotinas e documentações que podem ser úteis em diversas ocasiões. São soluções simples e pontuais.
 
 Abaixo, estão alguns links úteis:
 
