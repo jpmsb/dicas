@@ -9,7 +9,7 @@
 
 ## atualiza-firefox
 
-Baixa e instala a versão mais recente do navegador Mozilla Firefox, permitindo que o mesmo seja lançado pelo menu de aplicativos ou pelo comando `firefox`.
+Baixa, instala e atualiza o navegador Mozilla Firefox, permitindo que o mesmo seja lançado pelo menu de aplicativos ou pelo comando `firefox`.
 
 Para utilizar a rotina, execute o comando abaixo:
 
