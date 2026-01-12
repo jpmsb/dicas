@@ -1,6 +1,6 @@
 # Envio de Temperatura para a TTN
 
-Este é um exemplo simples de envio de temperatura para a TTN (The Things Network) utilizando um ESP32 com LoRaWAN.
+Este é um exemplo simples de envio de temperatura para a TTN (_The Things Network_) utilizando um ESP32 com LoRaWAN.
 
 O kit de desenvolvimento utilizado foi o [IoT DevKit - LoRaWAN](https://www.robocore.net/lorawan/iot-devkit-lorawan) da Robocore.
 
