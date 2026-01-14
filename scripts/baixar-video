@@ -53,9 +53,16 @@ echo ""
 
 ##################################################
 
-comando=$(echo "$aplicativo -f "$id_video"+"$id_audio" "$url_video"")
+# Montando o comando de download
+if [[ -n "$id_audio" ]]; then
+    # Se há áudio separado, combina vídeo + áudio
+    comando="$aplicativo -f \"$id_video+$id_audio\" \"$url_video\""
+else
+    # Se não há áudio separado, usa apenas o vídeo (que pode conter áudio embutido)
+    comando="$aplicativo -f \"$id_video\" \"$url_video\""
+fi
 
-echo "Baixando com o comando: \"$comando\""
+echo "Baixando com o comando: $comando"
 bash -c "$comando"
 
 # echo "Reproduzindo com o VLC..."
