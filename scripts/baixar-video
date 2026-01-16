@@ -64,8 +64,3 @@ fi
 
 echo "Baixando com o comando: $comando"
 bash -c "$comando"
-
-# echo "Reproduzindo com o VLC..."
-# arquivo_de_video=$(ls -1 | grep "$nome_do_video")
-
-# vlc "$arquivo_de_video"
