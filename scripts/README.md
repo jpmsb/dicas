@@ -60,13 +60,13 @@ Baixa um vídeo de sites, como o YouTube, selecionando a melhor resolução e  t
 Para baixar o script, execute o comando abaixo:
 
 ```bash
-wget -O ~/baixar-video 'https://raw.githubusercontent.com/jpmsb/dicas/refs/heads/master/scripts/baixar-video'
+wget 'https://raw.githubusercontent.com/jpmsb/dicas/refs/heads/master/scripts/baixar-video' -O ~/.local/bin/baixar-video
 ```
 
 Depois, dê permissão de execução ao arquivo:
 
 ```bash
-chmod +x ~/baixar-video
+chmod +x ~/.local/bin/baixar-video
 ```
 
 ### Uso
