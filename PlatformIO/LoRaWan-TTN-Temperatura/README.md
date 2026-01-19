@@ -84,7 +84,7 @@ Opcionalmente, você pode ajustar o intervalo em que a temperatura é envada par
 ```
 # Intervalos em segundos
 intervalo_envio=60           # 1 minuto entre cada envio
-intervalo_desconectado=300   # 5 minutos de limitar máximo de desconexão
+intervalo_desconectado=300   # 5 minutos de limiar máximo de desconexão
 ```
 
 ### Compilando e gravando
