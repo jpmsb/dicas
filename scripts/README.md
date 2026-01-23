@@ -81,7 +81,7 @@ Substitua `'URL'` pelo endereço do vídeo no YouTube ou outro site de vídeos. 
 
 ## instalar-icones-tela
 
-Instala o tema de ícones Tela.
+Instala o tema de ícones Tela, com ícones personalizados para o sistema openSUSE Tumbleweed.
 
 Para instalar o tema apenas para usuário atual, execute o comando abaixo:
 
