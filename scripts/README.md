@@ -95,7 +95,7 @@ Para instalar o tema para todos os usuários, execute o comando abaixo:
 curl -sL 'https://github.com/jpmsb/dicas/raw/master/scripts/instalar-icones-tela' | sudo bash
 ```
 
-### instalar-tema-chameleon-breeze
+## instalar-tema-chameleon-breeze
 
 Instala os temas Chameleon Breeze Dark e Chameleon Breeze Darker, bem como os esquemas de cores associados.
 
