@@ -110,3 +110,15 @@ Para instalar os temas para todos os usuários, execute o comando abaixo:
 ```bash
 curl -sL 'https://github.com/jpmsb/dicas/raw/master/scripts/instalar-tema-chameleon-breeze' | sudo bash
 ```
+
+## copiar-DVD
+
+Crie uma imagem ISO a partir do conteúdo de um DVD físico.
+
+Para utilizar a rotina, execute o comando abaixo:
+
+```bash
+curl -sL 'https://github.com/jpmsb/dicas/raw/master/scripts/copiar-DVD' | bash
+```
+
+O nome da imagem ISO será o mesmo do DVD, mas com a extensão `.iso`.
