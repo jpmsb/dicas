@@ -1,6 +1,6 @@
 # Análise do RSSI de rede LoRa/LoRaWAN
 
-Script em MATLAB/Octave para leitura de dados de RSSI (_Received Signal Strength Indicator_) de rede LoRa/LoRaWAN, filtragem por data e geração de histograma de frequência.
+Script em MATLAB/Octave para leitura de dados de RSSI (_Received Signal Strength Indicator_) de rede LoRa/LoRaWAN, filtragem por data e geração de histograma de frequências.
 
 ## Conteúdo do diretório
 
