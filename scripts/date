@@ -1,3 +1,5 @@
 #!/bin/bash
 
+# Mostra a data e hora atual em segundos desde 1-1-1970
+
 echo -e "Segundos desde 1-1-1970: $(date +%s)\nData atual: $(date +%d)/$(date +%m)/$(date +%Y) - $(date +%H):$(date +%M):$(date +%S)"
