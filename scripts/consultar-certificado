@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Obter o certificado de um servidor
+
 dominio="$1"
 servidor="$2"
 
