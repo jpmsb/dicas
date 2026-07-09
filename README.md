@@ -6,3 +6,7 @@ Abaixo, estão alguns links úteis:
 
 - [Scripts úteis](scripts/README.md)
 - [Coleta de temperatura e envio para a TTN via LoRaWan](PlatformIO/LoRaWan-TTN-Temperatura/README.md)
+
+## Repositórios externos
+
+- [Sunshine](https://github.com/jpmsb/Sunshine)
