@@ -9,4 +9,4 @@ Abaixo, estão alguns links úteis:
 
 ## Repositórios externos
 
-- [Sunshine](https://github.com/jpmsb/Sunshine)
+- [Sunshine (fork)](https://github.com/jpmsb/Sunshine)
