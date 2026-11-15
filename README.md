@@ -10,3 +10,4 @@ Abaixo, estão alguns links úteis:
 ## Repositórios externos
 
 - [Sunshine (fork)](https://github.com/jpmsb/Sunshine)
+- [Ultimate Vocal Remover 5](https://github.com/jpmsb/ultimatevocalremovergui)
